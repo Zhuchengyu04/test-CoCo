@@ -1,0 +1,25 @@
+{
+	"configPath": {
+		"runtimeConfigPath": "/opt/confidential-containers/share/defaults/kata-containers",
+        "podConfigPath": "/root/shells/kata/fixtures"
+	},
+    "file":{
+        "rootfs": "/opt/confidential-containers/share/kata-containers/kata-ubuntu-latest.image",
+        "containerd_file": "/etc/containerd/config.toml"
+    },
+	"proxies": {
+		"default": {
+			"httpProxy": "http://proxy.cd.intel.com:912",
+			"httpsProxy": "http://proxy.cd.intel.com:912",
+			"noProxy": "127.0.0.0/8,localhost,10.0.0.0/8,192.168.0.0/16,192.168.14.0/24,.intel.com,100.64.0.0/10,172.16.0.0/12"
+		}
+	},
+	"certificates": {
+		"certsPath": "/root/shells/kata/",
+		"type": "DNS",
+		"registry": "zcy-Z390-AORUS-MASTER.sh.intel.com",
+		"port": "443",
+		"image_path": "/root/shells/kata/create_files",
+		"ip": "10.239.159.24"
+	}
+}
