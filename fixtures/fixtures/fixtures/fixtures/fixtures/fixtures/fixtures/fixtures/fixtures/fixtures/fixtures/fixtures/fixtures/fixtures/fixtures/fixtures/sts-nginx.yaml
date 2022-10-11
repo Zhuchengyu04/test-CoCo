@@ -45,7 +45,7 @@ spec:
           effect: NoSchedule
       containers:
       - name: example-lvm
-        image: zcy-Z390-AORUS-MASTER.sh.intel.com/redis:latest
+        image: zcy-Z390-AORUS-MASTER.sh.intel.com/busybox:latest
         imagePullPolicy: Always
         volumeMounts:
         - mountPath: "/data"

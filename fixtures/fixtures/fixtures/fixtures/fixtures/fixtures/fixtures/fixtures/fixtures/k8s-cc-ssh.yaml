@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: example256m-cc-kata
+  name: example256m-cc-kata-qemu
 spec:
-  runtimeClassName: kata
+  runtimeClassName: kata-qemu
   containers:
   - name: example256m
     image: zcy-Z390-AORUS-MASTER.sh.intel.com/example256m-encrypted:latest

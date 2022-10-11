@@ -106,8 +106,11 @@ setup() {
 @test "$test_tag Test trust storage" {
 	setup
 	${FIXTURES_DIR}/../losetup-crt.sh $ROOTFS_IMAGE_PATH c
-	git clone https://github.com/Zhuchengyu04/open-local.git "$TEST_DIR/open-local"
-	cd $TEST_DIR/open-local
+	if [ ! -d $GOPATH/open-local ]; then
+		git clone https://github.com/Zhuchengyu04/open-local.git "$GOPATH/open-local"
+	fi
+	cd $GOPATH/open-local
+	# helm delete open-local
 
 	helm install open-local ./helm
 

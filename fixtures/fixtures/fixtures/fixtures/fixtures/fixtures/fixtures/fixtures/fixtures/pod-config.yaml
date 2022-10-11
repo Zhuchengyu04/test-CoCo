@@ -5,10 +5,10 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: example256m-cc
+  name: busybox-cc
 spec:
   runtimeClassName: kata-qemu
   containers:
-  - name: example256m
-    image: zcy-Z390-AORUS-MASTER.sh.intel.com/example256m:latest
+  - name: busybox
+    image: zcy-Z390-AORUS-MASTER.sh.intel.com/busybox:latest
     imagePullPolicy: Always

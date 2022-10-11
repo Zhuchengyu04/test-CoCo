@@ -1,0 +1,30 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: busybox
+spec:
+  selector:
+    app: busybox
+  ports:
+  - port: 22
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: busybox
+spec:
+  selector:
+    matchLabels:
+      app: busybox
+  template:
+    metadata:
+      labels:
+        app: busybox
+    spec:
+      runtimeClassName: kata-qemu
+      containers:
+      - name: busybox
+        # image: docker.io/katadocker/busybox
+        image: zcy-Z390-AORUS-MASTER.sh.intel.com/busybox-encrypted:latest
+        # image:  quay.io/kata-containers/encrypted-image-tests:encrypted
+        imagePullPolicy: Always

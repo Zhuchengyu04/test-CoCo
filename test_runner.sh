@@ -52,7 +52,7 @@ parse_args() {
 		s)
 			if [ "$tests_passing" == "" ]; then
 				# echo "Test signed image"
-				tests_passing +="Test signed image"
+				tests_passing+="Test signed image"
 			else
 				# echo "|Test signed image"
 				tests_passing+="|Test signed image"
@@ -68,7 +68,7 @@ parse_args() {
 			fi
 			;;
 
-		# h) usage 0 ;;
+		h) usage 0 ;;
 		# p) usage 0 ;;
 		*)
 			echo "Invalid option: -$OPTARG" >&2
