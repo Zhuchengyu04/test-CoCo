@@ -1,0 +1,14 @@
+# Copyright (c) 2022 IBM Corporation
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example16g-cc-kata-qemu
+spec:
+  runtimeClassName: kata-qemu
+  containers:
+  - name: example16g
+    image: zcy-Z390-AORUS-MASTER.sh.intel.com/example16g:latest
+    imagePullPolicy: Always

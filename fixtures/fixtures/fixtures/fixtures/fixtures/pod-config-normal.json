@@ -1,0 +1,11 @@
+{
+    "metadata": {
+        "name": "normal-sandbox",
+        "namespace": "default",
+        "attempt": 1,
+        "uid": "hdishd83djaidwnduwk28bcdc"
+    },
+    "log_directory": "/tmp",
+    "linux": {
+    }
+}
