@@ -183,7 +183,7 @@ clear_kernel_params() {
 #
 kubernetes_wait_cc_pod_be_ready() {
     local pod_name="$1"
-    local wait_time="${2:-60}"
+    local wait_time="${2:-120}"
 
     kubectl wait --timeout=${wait_time}s --for=condition=ready pods/$pod_name
 }
@@ -591,7 +591,7 @@ run_registry() {
         -e REGISTRY_HTTP_ADDR=0.0.0.0:$PORT -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
         -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key -p $PORT:$PORT registry:2
 
-    pull_image
+    # pull_image
 }
 # run_registry_without_cert() {
 
@@ -609,8 +609,7 @@ run_registry() {
 # }
 pull_image() {
     VERSION=latest
-    TMP_IMAGE=(busybox)
-    for IMAGE in ${TMP_IMAGE[@]}; do
+    for IMAGE in ${IMAGE_LISTS[@]}; do
         docker pull $IMAGE:$VERSION
         docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION
         docker push $REGISTRY_NAME/$IMAGE:$VERSION
@@ -635,7 +634,8 @@ read_config() {
     DEBUG_CONSOLE=true
 
     # export IMAGE_LISTS=(example256m example512m example1g example2g example4g example8g example16g)
-    export IMAGE_LISTS=(busybox)
+    # export IMAGE_LISTS=(busybox redis mysql ruby rust swift)
+    export IMAGE_LISTS=$(jq -r .file.comments_image_lists[0] test_config.json)
     export VERSION=latest
     export CERTS_PATH=$(jq -r '.certificates.certsPath' test_config.json)
     export TYPE_NAME=$(jq -r '.certificates.type' test_config.json)
@@ -685,4 +685,16 @@ restore() {
     # rm -r $GOPATH
     rm -r $BACKUP_PATH
     export BACKUP_PATH=""
+}
+check_cc_runtime() {
+    RUNTIMELISTS=("kata" "kata-clh" "kata-clh-tdx" "kata-qemu" "kata-qemu-sev" "kata-qemu-tdx" )
+    COUNT=0
+    for RUNTIME in ${RUNTIMELISTS[@]}; do
+        RUNTIMES=$(kubectl get runtimeclass -ojson | jq -r .items[$COUNT].metadata.name)
+        if [ "$RUNTIMES" != "$RUNTIME" ]; then
+            return 1
+        fi
+        COUNT=$COUNT+1
+    done
+    return 0
 }

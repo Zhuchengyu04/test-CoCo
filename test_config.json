@@ -1,12 +1,24 @@
 {
 	"configPath": {
 		"runtimeConfigPath": "/opt/confidential-containers/share/defaults/kata-containers",
-        "podConfigPath": "/root/shells/kata/fixtures"
+		"podConfigPath": "/root/shells/kata/fixtures"
 	},
-    "file":{
-        "rootfs": "/opt/confidential-containers/share/kata-containers/kata-ubuntu-latest.image",
-        "containerd_file": "/etc/containerd/config.toml"
-    },
+	"file": {
+		"rootfs": "/opt/confidential-containers/share/kata-containers/kata-ubuntu-latest.image",
+		"containerd_file": "/etc/containerd/config.toml",
+		"comments_image_lists": [
+			"example256m",
+			"example512m",
+			"example1g",
+			"example2g",
+			"example4g",
+			"example8g",
+			"example16g"
+		],
+		"image_lists": [
+			"example256m"
+		]
+	},
 	"proxies": {
 		"default": {
 			"httpProxy": "http://proxy.cd.intel.com:912",

@@ -1,0 +1,82 @@
+apiVersion: csi.aliyun.com/v1alpha1
+kind: NodeLocalStorage
+metadata:
+  creationTimestamp: "2022-09-29T14:38:47Z"
+  generation: 3
+  name: zcy-z390-aorus-master
+  resourceVersion: "25944"
+  uid: e752d8b2-c39f-4926-80db-cb3e35f7b0ea
+spec:
+  listConfig:
+    devices: 
+      include:                
+      - /dev/sda6
+    mountPoints: {}
+    vgs:
+      include:
+      - open-local-pool-[0-9]+
+  nodeName: zcy-z390-aorus-master
+  resourceToBeInited:
+    vgs:
+    - devices:
+      - /dev/vdb
+      name: open-local-pool-0
+status:
+  filteredStorageInfo:
+    updateStatusInfo:
+      lastUpdateTime: "2022-09-29T17:59:01Z"
+      updateStatus: accepted
+    volumeGroups:
+    - open-local-pool-0
+    devices:
+    - /dev/vdb
+  nodeStorageInfo:
+    deviceInfo:
+    - condition: DiskReady
+      mediaType: ssd
+      name: /dev/sda1
+      readOnly: false
+      total: 104857600
+    - condition: DiskReady
+      mediaType: ssd
+      name: /dev/sda2
+      readOnly: false
+      total: 16777216
+    - condition: DiskReady
+      mediaType: ssd
+      name: /dev/sda3
+      readOnly: false
+      total: 313850220544
+    - condition: DiskReady
+      mediaType: ssd
+      name: /dev/sda4
+      readOnly: false
+      total: 598736896
+    - condition: DiskReady
+      mediaType: ssd
+      name: /dev/sda5
+      readOnly: false
+      total: 314572800000
+    - condition: DiskReady
+      mediaType: ssd
+      name: /dev/sda6
+      readOnly: false
+      total: 371059589120
+    - condition: DiskReady
+      mediaType: ssd
+      name: /dev/sda
+      readOnly: false
+      total: 1000204886016
+    phase: Running
+    state:
+      lastHeartbeatTime: "2022-09-29T17:59:01Z"
+      status: "True"
+      type: DiskReady
+    volumeGroups:
+    - allocatable: 371057491968
+      available: 371057491968
+      condition: DiskReady
+      name: open-local-pool-0
+      physicalVolumes:
+      - /dev/sda6
+      total: 371057491968

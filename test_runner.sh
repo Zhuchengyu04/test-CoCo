@@ -89,7 +89,7 @@ run_non_tee_tests() {
 	echo $tests_passing
 	bats -f "$tests_passing" \
 		"k8s_non_tee_cc.bats"
-
+	
 }
 main() {
 

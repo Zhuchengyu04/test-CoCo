@@ -32,7 +32,7 @@ spec:
       storageClassName: open-local-lvm
       resources:
         requests:
-          storage: 10Gi
+          storage: 5Gi
   template:
     metadata:
       labels:
@@ -45,7 +45,7 @@ spec:
           effect: NoSchedule
       containers:
       - name: example256m-lvm
-        image: zcy-Z390-AORUS-MASTER.sh.intel.com/mysql:latest
+        image: zcy-Z390-AORUS-MASTER.sh.intel.com/example256m:latest
         imagePullPolicy: Always
         volumeMounts:
         - mountPath: "/data"

@@ -1,42 +1,46 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: example256m-lvm
+  name: example-lvm-snap
   labels:
-    app: example256m-lvm
+    app: example-lvm-snap
 spec:
   ports:
   - port: 80
     name: web
   clusterIP: None
   selector:
-    app: example256m-lvm
+    app: example-lvm-snap
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: example256m-lvm
+  name: example-lvm-snap
 spec:
   selector:
     matchLabels:
-      app: example256m-lvm
+      app: example-lvm-snap
   podManagementPolicy: Parallel
-  serviceName: "example256m-lvm"
+  serviceName: "example-lvm-snap"
   replicas: 1
   volumeClaimTemplates:
   - metadata:
       name: html
     spec:
+      dataSource:
+        name: new-snapshot-test # 指定刚创建的VolumeSnapshot名称
+        kind: VolumeSnapshot
+        apiGroup: snapshot.storage.k8s.io
       accessModes:
         - ReadWriteOnce
       storageClassName: open-local-lvm
       resources:
         requests:
-          storage: 10Gi
+          storage: 4Gi
   template:
     metadata:
       labels:
-        app: example256m-lvm
+        app: example-lvm-snap
     spec:
       runtimeClassName: kata-qemu
       tolerations:
@@ -44,8 +48,8 @@ spec:
           operator: Exists
           effect: NoSchedule
       containers:
-      - name: example256m-lvm
-        image: zcy-Z390-AORUS-MASTER.sh.intel.com/mysql:latest
+      - name: nginx
+        image: zcy-Z390-AORUS-MASTER.sh.intel.com/busybox:latest
         imagePullPolicy: Always
         volumeMounts:
         - mountPath: "/data"

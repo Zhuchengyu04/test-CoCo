@@ -2,22 +2,18 @@
 
 load ./lib.sh
 
-
 test_tag="[cc][agent][kubernetes][containerd]"
 original_kernel_params=$(get_kernel_params)
 
-
-
-
-
-
-
-
-
-
 setup() {
 	start_date=$(date +"%Y-%m-%d %H:%M:%S")
-	./cc_deploy.sh 
+	check_cc_runtime
+	if [ $? -eq 0 ]; then
+		echo "installed kata "
+	else
+		echo "not install kata "
+		./cc_deploy.sh
+	fi
 	echo "Prepare containerd for Confidential Container"
 	# SAVED_CONTAINERD_CONF_FILE="/etc/containerd/config.toml.$$"
 	# configure_cc_containerd "$SAVED_CONTAINERD_CONF_FILE"
@@ -25,12 +21,14 @@ setup() {
 	echo "Reconfigure Kata Containers"
 	switch_image_service_offload on
 	clear_kernel_params
-	add_kernel_params "${original_kernel_params}"
+	# add_kernel_params "${original_kernel_params}"
 	add_kernel_params \
 		"agent.container_policy_file=/etc/containers/quay_verification/quay_policy.json"
-	rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
-	systemctl daemon-reload
-	systemctl restart containerd
+	if [ -f /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf]; then
+		rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
+		systemctl daemon-reload
+		systemctl restart containerd
+	fi
 	# In case the tests run behind a firewall where images needed to be fetched
 	# through a proxy.
 	# local https_proxy="${HTTPS_PROXY:-${https_proxy:-}}"
@@ -52,13 +50,9 @@ setup() {
 	create_image_size
 }
 
-
-
-
 @test "$test_tag Test unencrypted unsigned image" {
 
 	setup
-	
 
 	for IMAGE in ${IMAGE_LISTS[@]}; do
 		checkout_pod_yaml "./fixtures/unsigned-unprotected-pod-config.yaml" $IMAGE
@@ -108,32 +102,34 @@ setup() {
 	${FIXTURES_DIR}/../losetup-crt.sh $ROOTFS_IMAGE_PATH c
 	if [ ! -d $GOPATH/open-local ]; then
 		git clone https://github.com/Zhuchengyu04/open-local.git "$GOPATH/open-local"
+		cd $GOPATH/open-local
+		helm install open-local ./helm
 	fi
-	cd $GOPATH/open-local
-	# helm delete open-local
 
-	helm install open-local ./helm
+	for IMAGE in ${IMAGE_LISTS[@]}; do
+		pod_config="${FIXTURES_DIR}/sts-nginx.yaml"
+		checkout_pod_yaml $pod_config $IMAGE
+		eval $(parse_yaml $pod_config "_")
 
-	pod_config="${FIXTURES_DIR}/sts-nginx.yaml"
-	eval $(parse_yaml $pod_config "_")
+		create_test_pod $pod_config
+		if ! kubernetes_wait_cc_pod_be_ready "${_metadata_name}-0"; then
+			return 1
+		fi
+		kubectl apply -f ${FIXTURES_DIR}/snapshot.yaml
+		kubectl get volumesnapshot
+		kubectl wait --timeout=10s --for=jsonpath={.status.readyToUse}=true volumesnapshot/new-snapshot-test
 
-	create_test_pod $pod_config
-	if ! kubernetes_wait_cc_pod_be_ready "${_metadata_name}-0"; then
-		return 1
-	fi
-	kubectl apply -f ${FIXTURES_DIR}/snapshot.yaml
-	kubectl get volumesnapshot
-	kubectl wait --timeout=10s --for=jsonpath={.status.readyToUse}=true volumesnapshot/new-snapshot-test
+		checkout_pod_yaml "${FIXTURES_DIR}/sts-nginx-snap.yaml" $IMAGE
+		kubectl apply -f ${FIXTURES_DIR}/sts-nginx-snap.yaml
+		if ! kubernetes_wait_cc_pod_be_ready "example-lvm-snap-0"; then
+			return 1
+		fi
+		kubernetes_delete_cc_pod_if_exists "example-lvm-snap-0" || true
+		kubectl delete -f ${FIXTURES_DIR}/sts-nginx-snap.yaml
 
-	kubectl apply -f ${FIXTURES_DIR}/sts-nginx-snap.yaml
-	if ! kubernetes_wait_cc_pod_be_ready "example-lvm-snap-0"; then
-		return 1
-	fi
-	kubernetes_delete_cc_pod_if_exists "example-lvm-snap-0" || true
-	kubectl delete -f ${FIXTURES_DIR}/sts-nginx-snap.yaml
-
-	kubectl delete -f ${FIXTURES_DIR}/snapshot.yaml
-	kubectl delete -f ${FIXTURES_DIR}/sts-nginx.yaml
+		kubectl delete -f ${FIXTURES_DIR}/snapshot.yaml
+		kubectl delete -f ${FIXTURES_DIR}/sts-nginx.yaml
+	done
 
 	helm delete open-local
 	teardown
@@ -143,9 +139,9 @@ teardown() {
 
 	restore
 	REGISTRY_CONTAINER=$(docker ps -a | grep "registry" | awk '{print $1}')
-    if [ -n "$REGISTRY_CONTAINER" ]; then
-        docker stop $REGISTRY_CONTAINER
-        docker rm $REGISTRY_CONTAINER
-    fi
+	if [ -n "$REGISTRY_CONTAINER" ]; then
+		docker stop $REGISTRY_CONTAINER
+		docker rm $REGISTRY_CONTAINER
+	fi
 
 }
