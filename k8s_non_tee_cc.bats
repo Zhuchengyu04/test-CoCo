@@ -7,12 +7,17 @@ original_kernel_params=$(get_kernel_params)
 
 setup() {
 	start_date=$(date +"%Y-%m-%d %H:%M:%S")
-	check_cc_runtime
-	if [ $? -eq 0 ]; then
-		echo "installed kata "
-	else
-		echo "not install kata "
+	if [ ! -f /etc/kubernetes/admin.conf ]; then
 		./cc_deploy.sh
+	else
+		export KUBECONFIG=/etc/kubernetes/admin.conf
+		check_cc_runtime
+		if [ $? -eq 0 ]; then
+			echo "installed kata "
+		else
+			echo "not install kata "
+			./cc_deploy.sh
+		fi
 	fi
 	echo "Prepare containerd for Confidential Container"
 	# SAVED_CONTAINERD_CONF_FILE="/etc/containerd/config.toml.$$"
