@@ -1,7 +1,7 @@
 set -o errexit
 set -o nounset
 set -o pipefail
-
+TEST_PATH=$(pwd)
 # SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 # GOPATH=$(go env | grep GOPATH | cut -d '=' -f2)
 # RUNTIME_CLASS="kata-qemu"
@@ -89,16 +89,19 @@ run_non_tee_tests() {
 	echo $tests_passing
 	bats -f "$tests_passing" \
 		"k8s_non_tee_cc.bats"
-	
+
 }
-modify_config_json(){
-	jq 'map(if .configPath.podConfigPath=${TEST_PATH})' test_config.json
+modify_config_json() {
+	old_value=$(awk -F"\"" '/podConfigPath/{print $4}' test_config.json)
+	sed -e "s@${old_value%/*}@$TEST_PATH@" -i test_config.json 
+
 }
 main() {
 
 	parse_args $@
-	TEST_PATH=$(pwd)
-
+	
+	modify_config_json
+	exit 0
 	run_non_tee_tests
 
 }
