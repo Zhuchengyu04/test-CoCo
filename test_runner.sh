@@ -91,9 +91,14 @@ run_non_tee_tests() {
 		"k8s_non_tee_cc.bats"
 	
 }
+modify_config_json(){
+	jq 'map(if .configPath.podConfigPath=${TEST_PATH})' test_config.json
+}
 main() {
 
 	parse_args $@
+	TEST_PATH=$(pwd)
+
 	run_non_tee_tests
 
 }
