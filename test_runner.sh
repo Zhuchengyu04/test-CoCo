@@ -101,7 +101,6 @@ main() {
 	parse_args $@
 	
 	modify_config_json
-	exit 0
 	run_non_tee_tests
 
 }
