@@ -656,7 +656,7 @@ read_config() {
     echo $katacontainers_repo_dir
     export ROOTFS_IMAGE_PATH=$(jq -r '.file.rootfs' test_config.json)
     export CONTAINERD_CONF_FILE=$(jq -r '.file.containerd_file' test_config.json)
-
+    export OPERATOR_VERSION=$(jq -r '.file.operator_version' test_config.json)
 
     export IMAGE_LISTS=$(jq -r .file.image_lists[] test_config.json)
     # export IMAGE_LISTS=(busybox redis mysql ruby rust swift)
@@ -671,7 +671,7 @@ read_config() {
     export STORAGE_FILE_D=$(jq -r '.certificates.image_path' test_config.json)
     export REGISTRY_IP=$(jq -r '.certificates.ip' test_config.json)
     export GPG_EMAIL=$(jq -r '.certificates.gpg_email' test_config.json)
-
+    
     backup
 
 }

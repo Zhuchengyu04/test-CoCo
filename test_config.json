@@ -19,7 +19,8 @@
 			"example8G",
 			"example16G"
 		],
-		"image_lists": []
+		"image_lists": [],
+		"operator_version": "v0.1.0"
 	},
 	"proxies": {
 		"default": {

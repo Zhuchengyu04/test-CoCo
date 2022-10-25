@@ -21,7 +21,7 @@ Commands:
 EOF
 }
 parse_args() {
-	while getopts "besth:" opt; do
+	while getopts "bestoh:" opt; do
 		case $opt in
 		# b) tests_passing +="Test unencrypted unsigned image" ;;
 		# e) tests_passing+="|Test encrypted image" ;;
@@ -64,7 +64,15 @@ parse_args() {
 				tests_passing+="|Test trust storage"
 			fi
 			;;
-
+		o)
+			if [ "$tests_passing" == "" ]; then
+				# echo "Test trust storage"
+				tests_passing+="Test install operator|Test unstall operator"
+			else
+				# echo "|Test trust storage"
+				tests_passing+="|Test uninstall operator|Test unstall operator"
+			fi
+			;;
 		h) usage 0 ;;
 		# p) usage 0 ;;
 		*)
@@ -78,6 +86,8 @@ parse_args() {
 run_non_tee_tests() {
 
 	echo $tests_passing
+	# exit 0
+
 	bats -f "$tests_passing" \
 		"k8s_non_tee_cc.bats"
 
@@ -90,20 +100,24 @@ modify_config_json() {
 print_image() {
 	IMAGES=($1)
 	for IMAGE in "${IMAGES[@]}"; do
-		echo "$IMAGE $(docker image ls | grep $IMAGE |head -1| awk '{print $7}')"
+		echo "$IMAGE $(docker image ls | grep $IMAGE | head -1 | awk '{print $7}')"
 	done
 }
 main() {
 	./serverinfo-stdout.sh
+	echo -e "\n\n"
+	OPERATOR_VERSION=$(jq -r .file.operator_version test_config.json)
+	echo "Operator Version: $OPERATOR_VERSION"
 	EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] test_config.json)
-	echo "\n\n test image list : "
+	echo -e "Test image list : "
 	echo -e "unsigned unencrpted images: "
 	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
 	echo -e "trust storage images: "
 	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
 	echo -e "signed images: "
 	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
-	echo "\n\n"
+	echo -e "\n\n"
+
 	parse_args $@
 	modify_config_json
 	run_non_tee_tests

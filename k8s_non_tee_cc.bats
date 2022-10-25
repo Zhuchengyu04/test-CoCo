@@ -26,7 +26,10 @@ setup() {
 	${FIXTURES_DIR}/../losetup-crt.sh $ROOTFS_IMAGE_PATH  c
 
 }
-
+@test "Test install operator" {
+	reset_runtime
+	install_runtime
+}
 @test "Test unencrypted unsigned image" {
 
 
@@ -130,7 +133,9 @@ setup() {
 	sudo kill -9 $VERDICTDID
 }
 
-
+@test "Test uninstall operator" {
+	reset_runtime
+}
 
 teardown() {
 
