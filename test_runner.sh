@@ -2,11 +2,11 @@ set -o errexit
 set -o nounset
 set -o pipefail
 TEST_PATH=$(pwd)
-# SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
-# GOPATH=$(go env | grep GOPATH | cut -d '=' -f2)
-# RUNTIME_CLASS="kata-qemu"
+
 tests_passing=""
-source ./lib.sh
+TEST_IMAGES=($(jq -r .file.image_lists[] test_config.json | tr " " "\n"))
+
+source $TEST_PATH/lib.sh
 usage() {
 	exit_code="$1"
 	cat <<EOF
@@ -18,7 +18,6 @@ Commands:
 -e:						Encrypted image tests
 -s:						Signed image tests
 -t:						Trusted storage for container image tests
--h:						123
 EOF
 }
 parse_args() {
@@ -37,8 +36,6 @@ parse_args() {
 				# echo "|Test unencrypted unsigned image"
 				tests_passing+="|Test unencrypted unsigned image"
 			fi
-			# read_config
-			# restore
 			;;
 		e)
 			if [ "$tests_passing" == "" ]; then
@@ -78,14 +75,8 @@ parse_args() {
 	done
 }
 
-# tests for CC without specific hardware support
 run_non_tee_tests() {
-	# local runtimeclass="$1"
 
-	# tests_passing="Test unencrypted unsigned image"
-	# tests_passing+="|Test encrypted image"
-	# tests_passing+="|Test signed image"
-	# tests_passing+="|Test trust storage"
 	echo $tests_passing
 	bats -f "$tests_passing" \
 		"k8s_non_tee_cc.bats"
@@ -93,13 +84,27 @@ run_non_tee_tests() {
 }
 modify_config_json() {
 	old_value=$(awk -F"\"" '/podConfigPath/{print $4}' test_config.json)
-	sed -e "s@${old_value%/*}@$TEST_PATH@" -i test_config.json 
+	sed -e "s@${old_value%/*}@$TEST_PATH@" -i test_config.json
 
 }
+print_image() {
+	IMAGES=($1)
+	for IMAGE in "${IMAGES[@]}"; do
+		echo "$IMAGE $(docker image ls | grep $IMAGE |head -1| awk '{print $7}')"
+	done
+}
 main() {
-
+	./../serverinfo-stdout.sh
+	EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] test_config.json)
+	echo "\n\n test image list : "
+	echo -e "unsigned unencrpted images: "
+	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
+	echo -e "trust storage images: "
+	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
+	echo -e "signed images: "
+	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
+	echo "\n\n"
 	parse_args $@
-	
 	modify_config_json
 	run_non_tee_tests
 

@@ -6,4 +6,4 @@ spec:
   volumeSnapshotClassName: open-local-lvm
   source:
     # 需执行快照的源PVC名称
-    persistentVolumeClaimName: html-example-lvm-0
+    persistentVolumeClaimName: html-redis-lvm-0

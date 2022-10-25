@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -193,6 +193,12 @@ kubernetes_wait_cc_pod_be_running() {
 
     kubectl wait --timeout=${wait_time}s --for=jsonpath='{.status.phase}'=Running pods/$pod_name
 }
+kubernetes_wait_cc_snapshot_be_ready() {
+    local pod_name="$1"
+    local wait_time="${2:-120}"
+
+   kubectl wait --timeout=${wait_time}s --for=jsonpath='{.status.readyToUse}'=true volumesnapshot/new-snapshot-test
+}
 # Create a pod and wait it be ready, otherwise fail.
 #
 # Parameters:
@@ -232,10 +238,10 @@ enable_full_debug() {
     load_runtime_config_path
 
     # Toggle all the debug flags on in kata's configuration.toml to enable full logging.
-    sudo sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
+     sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
 
     # Also pass the initcall debug flags via Kernel parameters.
-    add_kernel_params "agent.log=debug" "initcall_debug"
+    # add_kernel_params "agent.log=debug" "initcall_debug"
 }
 # Create the test pod.
 #
@@ -296,8 +302,20 @@ checkout_pod_yaml() {
     current_image_name=$2
     eval $(parse_yaml $pod_config "_")
     image_name=$(echo $_metadata_name | cut -d '-' -f 1)
+    echo "--------------"
+    echo ${image_name,,}
+    echo ${current_image_name,,}
+    echo "--------------"
+    sed -i "s/${image_name,,}/${current_image_name,,}/g" $pod_config
+    # exit 0
+}
+checkout_snapshot_yaml() {
+    pod_config=$1
+    current_image_name=$2
+    eval $(parse_yaml $pod_config "snapshot_")
+    image_name=$(echo $snapshot_spec_source_persistentVolumeClaimName | cut -d '-' -f 2)
     echo ${image_name}
-    sed -i "s/${image_name}/$current_image_name/g" $pod_config
+    sed -i "s/${image_name,,}/${current_image_name,,}/g" $pod_config
 
 }
 # Copy local files to the guest image.
@@ -392,9 +410,13 @@ generate_encrypted_image() {
 
     # git clone https://github.com/containers/skopeo $GOPATH/src/github.com/containers/skopeo
     # cd $GOPATH/src/github.com/containers/skopeo && make bin/skopeo
+    # apt-get install go-md2man
     # make install
 
     # Generate the key provider configuration file
+    if [ ! -d /etc/containerd/ocicrypt/ ]; then
+        mkdir -p /etc/containerd/ocicrypt/
+    fi
     cat <<-EOF >/etc/containerd/ocicrypt/ocicrypt_keyprovider.conf
 {
         "key-providers": {
@@ -407,7 +429,9 @@ generate_encrypted_image() {
 EOF
 
     # Generate a encryption key
-
+    if [ ! -d /opt/verdictd/keys/ ]; then
+        mkdir -p /opt/verdictd/keys/
+    fi
     cat <<-EOF >/opt/verdictd/keys/84688df7-2c0c-40fa-956b-29d8e74d16c0
 1234567890123456789012345678901
 EOF
@@ -420,7 +444,8 @@ EOF
     sleep 1
     # Launch Verdictd in another terminal
 
-    # skopeo --insecure-policy copy docker://docker.io/library/alpine:latest oci:alpine
+    # skopeo --insecure-policy copy docker://docker.io/library/busybox:latest oci:busybox
+    # skopeo copy --insecure-policy --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 oci:busybox docker://zcy-Z390-AORUS-MASTER.sh.intel.com/busybox-encrypted:latest
 
     export OCICRYPT_KEYPROVIDER_CONFIG=/etc/containerd/ocicrypt/ocicrypt_keyprovider.conf
 
@@ -440,21 +465,22 @@ setup_offline_fs_kbc_agent_config_in_guest() {
     local rootfs_agent_config="/etc/agent-config.toml"
 
     # clone_katacontainers_repo
-    sudo -E AA_KBC_PARAMS="eaa_kbc::${REGISTRY_IP}:50000" envsubst <${katacontainers_repo_dir}/docs/how-to/data/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
+    sudo -E AA_KBC_PARAMS='eaa_kbc::10.239.159.53:50000' envsubst <confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
     # sudo -E AA_KBC_PARAMS="eaa_kbc::127.0.0:50000" envsubst <${katacontainers_repo_dir}/docs/how-to/data/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
 
     # sudo -E AA_KBC_PARAMS="offline_fs_kbc::null" HTTPS_PROXY="${HTTPS_PROXY:-${https_proxy:-}}" envsubst < ${katacontainers_repo_dir}/docs/how-to/data/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
 
     # TODO #5173 - remove this once the kernel_params aren't ignored by the agent config
     # Enable debug log_level and debug_console access based on env vars
-    [ -n "${DEBUG:-}" ] || echo "log_level = \"debug\"" | sudo tee -a "${rootfs_agent_config}"
-    [ "${DEBUG_CONSOLE:-}" = "true" ] || echo -e "debug_console = true\ndebug_console_vport = 1026" | sudo tee -a "${rootfs_agent_config}"
+    echo "log_level = \"debug\"" | sudo tee -a "${rootfs_agent_config}"
+    echo -e "debug_console = true\ndebug_console_vport = 1026" | sudo tee -a "${rootfs_agent_config}"
     echo -e "dev_mode = false\nserver_addr = \"vsock://-1:4096\"\nlog_vport = 0\ncontainer_pipe_size = 0\nunified_cgroup_hierarchy = false\ntracing = false" | sudo tee -a "${rootfs_agent_config}"
     # Uncomment the 'ExecProcessRequest' endpoint as our test currently uses exec to check the container
     sudo sed -i 's/#\("ExecProcessRequest"\)/\1/g' "${rootfs_agent_config}"
     cp_to_guest_img "/tests/fixtures" "${rootfs_agent_config}"
     add_kernel_params "agent.config_file=/tests/fixtures/$(basename ${rootfs_agent_config})"
-    cat "${rootfs_agent_config}"
+    # add_kernel_params "agent.config_file=${rootfs_agent_config}"
+    # cat "${rootfs_agent_config}"
 }
 setup_decryption_files_in_guest() {
 
@@ -478,7 +504,22 @@ kubernetes_delete_ssh_demo_pod() {
 
     kubectl wait pod/$1 --for=delete --timeout=-30s
 }
+generate_gpg_key() {
+    gpg --expert --full-gen-key <<ESXU
+1
+4096
+4096
+0
+y
+$GPG_EMAIL
+$GPG_EMAIL
+$GPG_EMAIL
+o
+$GPG_EMAIL
+$GPG_EMAIL
 
+ESXU
+}
 setup_skopeo_signature_files_in_guest() {
     setup_common_signature_files_in_guest
     cp_to_guest_img "${rootfs_directory}" "/etc/containers/registries.d"
@@ -500,10 +541,7 @@ setup_common_signature_files_in_guest() {
 unencrypted_signed_image_from_unprotected_registry() {
     pod_config="${FIXTURES_DIR}/unsigned-unprotected-pod-config.yaml"
     eval $(parse_yaml $pod_config "_")
-    image_name=$(echo $_metadata_name | cut -d '-' -f 1)
-    sed -i "s/${image_name}/$1/g" $pod_config
-    echo ${image_name}
-    # echo $pod_config
+    echo  $_metadata_name 
     create_test_pod $pod_config
     if ! kubernetes_wait_cc_pod_be_running "$_metadata_name"; then
         # TODO: run this command for debugging. Maybe it should be
@@ -513,7 +551,7 @@ unencrypted_signed_image_from_unprotected_registry() {
     fi
     kubectl get pods
     # read -p "wait a minute:" tests
-    eval $(parse_yaml $pod_config "_")
+    # eval $(parse_yaml $pod_config "_")
     kubernetes_delete_cc_pod_if_exists $_metadata_name || true
 
 }
@@ -526,7 +564,6 @@ pull_encrypted_image_inside_guest_with_decryption_key() {
     pod_id=$(kubectl get pods -o jsonpath='{.items..metadata.name}')
     kubernetes_delete_ssh_demo_pod_if_exists "$pod_id" || true
 }
-
 create_file_for_size() {
     local file_size=$1
     local file_unit=$2
@@ -546,16 +583,14 @@ create_file_for_size() {
     docker push $REGISTRY_NAME/example$file_size${file_unit,,}:$VERSION
 }
 create_image_size() {
-    # GB_SIZE_LIST=(1 2 4 8 16)
-    # for SIZES in ${GB_SIZE_LIST[@]}; do
-
-    #     create_file_for_size $SIZES G
-    # done
-    MB_SIZE_LIST=(256)
-    for SIZES in ${MB_SIZE_LIST[@]}; do
-
-        create_file_for_size $SIZES M
+    for IMAGE in ${IMAGE_LISTS[@]}; do
+        UNIT=$(echo $IMAGE|sed 's/[^A-Z]//g')
+        SIZES=$(echo $IMAGE|sed 's/[^0-9 ]//g')
+        echo $UNIT
+        echo $SIZES
+        create_file_for_size $SIZES $UNIT
     done
+    
 }
 #generate .crt and .key
 generate_crt() {
@@ -574,42 +609,33 @@ ESXU
 }
 
 run_registry() {
-    generate_crt
-    cp ${CERTS_PATH}certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
-
-    update-ca-certificates
-
     # delete all docker containers and images
     REGISTRY_CONTAINER=$(docker ps -a | grep "registry" | awk '{print $1}')
     if [ -n "$REGISTRY_CONTAINER" ]; then
         docker stop $REGISTRY_CONTAINER
         docker rm $REGISTRY_CONTAINER
     fi
+    generate_crt
+    cp ${CERTS_PATH}certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
+
+    update-ca-certificates
 
     # Deploy docker registry
     docker run -d --restart=always --name $REGISTRY_NAME -v ${CERTS_PATH}certs:/certs \
         -e REGISTRY_HTTP_ADDR=0.0.0.0:$PORT -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
         -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key -p $PORT:$PORT registry:2
 
-    # pull_image
+    # docker run -d --restart=always --name zcy-Z390-AORUS-MASTER.sh.intel.com -v certs:/certs \
+    #     -e REGISTRY_HTTP_ADDR=0.0.0.0:443 -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
+    #     -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key -p 443:443 registry:2
+
+    pull_image
+    # create_image_size
 }
-# run_registry_without_cert() {
 
-#     # delete all docker containers and images
-#     REGISTRY_CONTAINER=$(docker ps -a | grep "registry" | awk '{print $1}')
-#     if [ -n "$REGISTRY_CONTAINER" ]; then
-#         docker stop $REGISTRY_CONTAINER
-#         docker rm $REGISTRY_CONTAINER
-#     fi
-
-#     # Deploy docker registry
-#     docker run -d -p $PORT:$PORT --restart=always --name $REGISTRY_NAME  registry:2
-#     # -e REGISTRY_HTTP_ADDR=0.0.0.0:$PORT \
-
-# }
 pull_image() {
     VERSION=latest
-    for IMAGE in ${IMAGE_LISTS[@]}; do
+    for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
         docker pull $IMAGE:$VERSION
         docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION
         docker push $REGISTRY_NAME/$IMAGE:$VERSION
@@ -630,12 +656,13 @@ read_config() {
     echo $katacontainers_repo_dir
     export ROOTFS_IMAGE_PATH=$(jq -r '.file.rootfs' test_config.json)
     export CONTAINERD_CONF_FILE=$(jq -r '.file.containerd_file' test_config.json)
-    DEBUG=true
-    DEBUG_CONSOLE=true
 
-    # export IMAGE_LISTS=(example256m example512m example1g example2g example4g example8g example16g)
+
+    export IMAGE_LISTS=$(jq -r .file.image_lists[] test_config.json)
     # export IMAGE_LISTS=(busybox redis mysql ruby rust swift)
-    export IMAGE_LISTS=$(jq -r .file.comments_image_lists[0] test_config.json)
+    # export NORMAL_IMAGE_LISTS=$(jq -r .file.image_lists[] test_config.json)
+    export EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] test_config.json)
+    # export IMAGE_LISTS=(${NORMAL_IMAGE_LISTS[@]} ${EXAMPLE_IMAGE_LISTS[@]})
     export VERSION=latest
     export CERTS_PATH=$(jq -r '.certificates.certsPath' test_config.json)
     export TYPE_NAME=$(jq -r '.certificates.type' test_config.json)
@@ -643,9 +670,12 @@ read_config() {
     export PORT=$(jq -r '.certificates.port' test_config.json)
     export STORAGE_FILE_D=$(jq -r '.certificates.image_path' test_config.json)
     export REGISTRY_IP=$(jq -r '.certificates.ip' test_config.json)
+    export GPG_EMAIL=$(jq -r '.certificates.gpg_email' test_config.json)
 
     backup
+
 }
+
 backup() {
     # export BACKUP_PATH="$(mktemp -d)"
     export BACKUP_PATH="/root/shells/kata/backup"
@@ -687,7 +717,7 @@ restore() {
     export BACKUP_PATH=""
 }
 check_cc_runtime() {
-    RUNTIMELISTS=("kata" "kata-clh" "kata-clh-tdx" "kata-qemu" "kata-qemu-sev" "kata-qemu-tdx" )
+    RUNTIMELISTS=("kata" "kata-clh" "kata-clh-tdx" "kata-qemu" "kata-qemu-sev" "kata-qemu-tdx")
     COUNT=0
     for RUNTIME in ${RUNTIMELISTS[@]}; do
         RUNTIMES=$(kubectl get runtimeclass -ojson | jq -r .items[$COUNT].metadata.name)

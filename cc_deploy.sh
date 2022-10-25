@@ -33,20 +33,43 @@ test_pod_for_ccruntime() {
         fi
     done
 }
+reset_runtime() {
+    # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
+
+    kubectl delete -f $GOPATH/src/github.com/operator-0.1.0/config/samples/ccruntime.yaml
+    # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/deploy/deploy.yaml
+
+    kubectl delete -f $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
+    kubectl delete -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+    kubeadm reset -f
+    if [ -f /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf ]; then
+        rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
+        systemctl daemon-reload
+        systemctl restart containerd
+    fi
+}
 install_cc() {
+
+    wget https://github.com/confidential-containers/operator/archive/refs/tags/v0.1.0.tar.gz
+    tar -zxf v0.1.0.tar.gz -C $GOPATH/src/github.com/
+    rm v0.1.0.tar.gz
     MASTER_NAME=$(kubectl get nodes | grep "control" | awk '{print $1}')
     kubectl label node $MASTER_NAME node-role.kubernetes.io/worker=
+    # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/deploy/deploy.yaml
 
-    kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/deploy/deploy.yaml
+    kubectl apply -f $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
 
-    kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+    # kubectl taint nodes --all node-role.kubernetes.io/control-plane-
     test_pod_for_deploy
     if [ $? -eq 1 ]; then
         echo "ERROR: operator deployment failed !"
         return 1
     fi
     sleep 1
-    kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
+    # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
+
+    kubectl apply -f $GOPATH/src/github.com/operator-0.1.0/config/samples/ccruntime.yaml
+    # kubectl apply -f ./ccruntime.yaml
     test_pod_for_ccruntime
     if [ $? -eq 1 ]; then
         echo "ERROR: confidential container runtime deploy failed !"
@@ -55,16 +78,17 @@ install_cc() {
     return 0
     # kubectl get runtimeclass
 }
-main() {
+install_runtime() {
     kubeadm reset -f
     swapoff -a
     modprobe br_netfilter
     echo 1 >/proc/sys/net/ipv4/ip_forward
-    rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
+    # rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
     systemctl daemon-reload
     systemctl restart containerd
     iptables -P FORWARD ACCEPT
     kubeadm init --cri-socket /run/containerd/containerd.sock --pod-network-cidr=10.244.0.0/16 --image-repository registry.cn-hangzhou.aliyuncs.com/google_containers
+    # exit 0
     export KUBECONFIG=/etc/kubernetes/admin.conf
     kubectl taint nodes --all node-role.kubernetes.io/master-
     kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
@@ -75,4 +99,6 @@ main() {
     fi
     return 0
 }
-main "$@"
+# main "$@"
+# reset_runtime
+# reset_runtime

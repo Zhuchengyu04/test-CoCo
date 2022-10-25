@@ -1,23 +1,25 @@
 {
 	"configPath": {
 		"runtimeConfigPath": "/opt/confidential-containers/share/defaults/kata-containers",
-		"podConfigPath": "/root/shells/kata/fixtures"
+		"podConfigPath": "/root/kata/test-kata/fixtures"
 	},
 	"file": {
 		"rootfs": "/opt/confidential-containers/share/kata-containers/kata-ubuntu-latest.image",
 		"containerd_file": "/etc/containerd/config.toml",
 		"comments_image_lists": [
-			"example256m",
-			"example512m",
-			"example1g",
-			"example2g",
-			"example4g",
-			"example8g",
-			"example16g"
+			"busybox",
+			"redis"
 		],
-		"image_lists": [
-			"example256m"
-		]
+		"not_comments_image_lists": [
+			"example256M",
+			"example512M",
+			"example1G",
+			"example2G",
+			"example4G",
+			"example8G",
+			"example16G"
+		],
+		"image_lists": []
 	},
 	"proxies": {
 		"default": {
@@ -27,11 +29,12 @@
 		}
 	},
 	"certificates": {
-		"certsPath": "/root/shells/kata/",
+		"certsPath": "/root/kata/test-kata/",
 		"type": "DNS",
 		"registry": "zcy-Z390-AORUS-MASTER.sh.intel.com",
 		"port": "443",
-		"image_path": "/root/shells/kata/create_files",
-		"ip": "10.239.159.24"
+		"image_path": "/root/kata/test-kata/create_files",
+		"ip": "10.239.159.53",
+		"gpg_email": "intel@intel.com"
 	}
 }

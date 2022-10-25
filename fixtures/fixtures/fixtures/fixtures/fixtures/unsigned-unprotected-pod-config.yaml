@@ -10,6 +10,5 @@ spec:
   runtimeClassName: kata-qemu
   containers:
   - name: busybox
-    # image: zcy-Z390-AORUS-MASTER.sh.intel.com/example256m:latest
-    image: zcy-Z390-AORUS-MASTER.sh.intel.com/busybox
+    image: zcy-Z390-AORUS-MASTER.sh.intel.com/busybox:latest
     imagePullPolicy: Always
