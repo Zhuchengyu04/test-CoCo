@@ -94,7 +94,7 @@ print_image() {
 	done
 }
 main() {
-	./../serverinfo-stdout.sh
+	./serverinfo-stdout.sh
 	EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] test_config.json)
 	echo "\n\n test image list : "
 	echo -e "unsigned unencrpted images: "
