@@ -2,7 +2,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 TEST_PATH=$(pwd)
-
+script_name=$(basename "$0")
 tests_passing=""
 TEST_IMAGES=($(jq -r .file.image_lists[] test_config.json | tr " " "\n"))
 
@@ -14,14 +14,16 @@ Overview:
     Tests for confidential containers
     ${script_name} <command>
 Commands:
--b:          			Multiple pod spec and container image tests
--e:						Encrypted image tests
--s:						Signed image tests
--t:						Trusted storage for container image tests
+	-b:	Multiple pod spec and container image tests
+	-e:	Encrypted image tests
+	-s:	Signed image tests
+	-t:	Trusted storage for container image tests
+	-o:	Install && Uninstall Operator tests
+	-h:	help
 EOF
 }
 parse_args() {
-	while getopts "bestoh:" opt; do
+	while getopts "bestohd:" opt; do
 		case $opt in
 		# b) tests_passing +="Test unencrypted unsigned image" ;;
 		# e) tests_passing+="|Test encrypted image" ;;
@@ -104,6 +106,8 @@ print_image() {
 	done
 }
 main() {
+	parse_args $@
+	exit 0
 	./serverinfo-stdout.sh
 	echo -e "\n\n"
 	OPERATOR_VERSION=$(jq -r .file.operator_version test_config.json)
@@ -118,7 +122,10 @@ main() {
 	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
 	echo -e "\n\n"
 
-	parse_args $@
+	echo "install Kubernetes"
+	./setup/setup.sh
+
+	
 	modify_config_json
 	run_non_tee_tests
 
