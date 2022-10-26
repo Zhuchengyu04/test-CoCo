@@ -1,27 +1,27 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: busybox-lvm
+  name: redis-lvm
   labels:
-    app: busybox-lvm
+    app: redis-lvm
 spec:
   ports:
   - port: 80
     name: web
   clusterIP: None
   selector:
-    app: busybox-lvm
+    app: redis-lvm
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: busybox-lvm
+  name: redis-lvm
 spec:
   selector:
     matchLabels:
-      app: busybox-lvm
+      app: redis-lvm
   podManagementPolicy: Parallel
-  serviceName: "busybox-lvm"
+  serviceName: "redis-lvm"
   replicas: 1
   volumeClaimTemplates:
   - metadata:
@@ -36,7 +36,7 @@ spec:
   template:
     metadata:
       labels:
-        app: busybox-lvm
+        app: redis-lvm
     spec:
       runtimeClassName: kata-qemu
       tolerations:
@@ -44,9 +44,8 @@ spec:
           operator: Exists
           effect: NoSchedule
       containers:
-      - name: busybox-lvm
-        # image: zcy-Z390-AORUS-MASTER.sh.intel.com/mysql:latest
-        image: zcy-Z390-AORUS-MASTER.sh.intel.com/busybox
+      - name: redis-lvm
+        image: zcy-Z390-AORUS-MASTER.sh.intel.com/redis:latest
         imagePullPolicy: Always
         volumeMounts:
         - mountPath: "/data"

@@ -5,10 +5,10 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: mysql-cc-kata-qemu
+  name: redis-cc-kata-qemu
 spec:
   runtimeClassName: kata-qemu
   containers:
-  - name: mysql
-    image: zcy-Z390-AORUS-MASTER.sh.intel.com/mysql:latest
+  - name: redis
+    image: zcy-Z390-AORUS-MASTER.sh.intel.com/redis:latest
     imagePullPolicy: Always

@@ -102,18 +102,20 @@ modify_config_json() {
 print_image() {
 	IMAGES=($1)
 	for IMAGE in "${IMAGES[@]}"; do
-		echo "$IMAGE $(docker image ls | grep $IMAGE | head -1 | awk '{print $7}')"
+		echo "    $IMAGE $(docker image ls | grep $IMAGE | head -1 | awk '{print $7}')"
 	done
 }
 main() {
 	parse_args $@
-	exit 0
 	./serverinfo-stdout.sh
 	echo -e "\n\n"
+	echo "--------Operator Version--------"
 	OPERATOR_VERSION=$(jq -r .file.operator_version test_config.json)
 	echo "Operator Version: $OPERATOR_VERSION"
+
+	echo -e "\n--------Test Images--------"
+
 	EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] test_config.json)
-	echo -e "Test image list : "
 	echo -e "unsigned unencrpted images: "
 	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
 	echo -e "trust storage images: "
@@ -121,11 +123,10 @@ main() {
 	echo -e "signed images: "
 	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
 	echo -e "\n\n"
-
+	exit 0
 	echo "install Kubernetes"
 	./setup/setup.sh
 
-	
 	modify_config_json
 	run_non_tee_tests
 

@@ -1,7 +1,7 @@
 {
 	"configPath": {
 		"runtimeConfigPath": "/opt/confidential-containers/share/defaults/kata-containers",
-		"podConfigPath": "/root/kata/test-kata/fixtures"
+		"podConfigPath": "./fixtures"
 	},
 	"file": {
 		"rootfs": "/opt/confidential-containers/share/kata-containers/kata-ubuntu-latest.image",
@@ -30,11 +30,11 @@
 		}
 	},
 	"certificates": {
-		"certsPath": "/root/kata/test-kata/",
+		"certsPath": ".",
 		"type": "DNS",
 		"registry": "zcy-Z390-AORUS-MASTER.sh.intel.com",
 		"port": "443",
-		"image_path": "/root/kata/test-kata/create_files",
+		"image_path": "./create_files",
 		"ip": "10.239.159.53",
 		"gpg_email": "intel@intel.com"
 	}

@@ -49,8 +49,9 @@ reset_runtime() {
     fi
 }
 install_cc() {
+    OPERATOR_VERSION=$(jq -r .file.operator_version test_config.json)
 
-    wget https://github.com/confidential-containers/operator/archive/refs/tags/v0.1.0.tar.gz
+    wget https://github.com/confidential-containers/operator/archive/refs/tags/${OPERATOR_VERSION}.tar.gz
     tar -zxf v0.1.0.tar.gz -C $GOPATH/src/github.com/
     rm v0.1.0.tar.gz
     MASTER_NAME=$(kubectl get nodes | grep "control" | awk '{print $1}')
@@ -102,3 +103,4 @@ install_runtime() {
 # main "$@"
 # reset_runtime
 # reset_runtime
+install_runtime
