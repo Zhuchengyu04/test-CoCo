@@ -1,4 +1,5 @@
 readonly op_ns="confidential-containers-system"
+source run/common.bash
 wait_for_process() {
     wait_time="$1"
     sleep_time="$2"
@@ -35,7 +36,7 @@ test_pod_for_ccruntime() {
 }
 reset_runtime() {
     # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
-
+    export KUBECONFIG=/etc/kubernetes/admin.conf
     kubectl delete -f $GOPATH/src/github.com/operator-0.1.0/config/samples/ccruntime.yaml
     # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/deploy/deploy.yaml
 
@@ -47,9 +48,10 @@ reset_runtime() {
         systemctl daemon-reload
         systemctl restart containerd
     fi
+    rm -r $GOPATH/src/github.com/operator-0.1.0
 }
 install_cc() {
-    OPERATOR_VERSION=$(jq -r .file.operator_version test_config.json)
+    OPERATOR_VERSION=$(jq -r .file.operator_version $TEST_COCO_PATH/../config/test_config.json)
 
     wget https://github.com/confidential-containers/operator/archive/refs/tags/${OPERATOR_VERSION}.tar.gz
     tar -zxf v0.1.0.tar.gz -C $GOPATH/src/github.com/
@@ -103,4 +105,4 @@ install_runtime() {
 # main "$@"
 # reset_runtime
 # reset_runtime
-install_runtime
+# install_runtime

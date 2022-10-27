@@ -1,7 +1,8 @@
 {
-	"configPath": {
+	"config": {
 		"runtimeConfigPath": "/opt/confidential-containers/share/defaults/kata-containers",
-		"podConfigPath": "./fixtures"
+		"podConfigPath": "./fixtures",
+		"runtimeClass": "kata-qemu"
 	},
 	"file": {
 		"rootfs": "/opt/confidential-containers/share/kata-containers/kata-ubuntu-latest.image",
@@ -30,7 +31,7 @@
 		}
 	},
 	"certificates": {
-		"certsPath": ".",
+		"certsPath": "./",
 		"type": "DNS",
 		"registry": "zcy-Z390-AORUS-MASTER.sh.intel.com",
 		"port": "443",

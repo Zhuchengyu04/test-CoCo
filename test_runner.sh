@@ -4,9 +4,9 @@ set -o pipefail
 TEST_PATH=$(pwd)
 script_name=$(basename "$0")
 tests_passing=""
-TEST_IMAGES=($(jq -r .file.image_lists[] test_config.json | tr " " "\n"))
 
-source $TEST_PATH/lib.sh
+source $TEST_PATH/run/lib.sh
+
 usage() {
 	exit_code="$1"
 	cat <<EOF
@@ -25,15 +25,11 @@ EOF
 parse_args() {
 	while getopts "bestohd:" opt; do
 		case $opt in
-		# b) tests_passing +="Test unencrypted unsigned image" ;;
-		# e) tests_passing+="|Test encrypted image" ;;
-		# s) tests_passing+="|Test signed image" ;;
-		# t) tests_passing+="|Test trust storage" ;;
 
 		b)
 			if [ "$tests_passing" == "" ]; then
 				# echo "Test unencrypted unsigned image"
-				tests_passing+="Test unencrypted unsigned image"
+				tests_passing+="Test install operator|Test uninstall operator|Test unencrypted unsigned image"
 			else
 				# echo "|Test unencrypted unsigned image"
 				tests_passing+="|Test unencrypted unsigned image"
@@ -42,7 +38,7 @@ parse_args() {
 		e)
 			if [ "$tests_passing" == "" ]; then
 				# echo "Test encrypted image"
-				tests_passing+="Test encrypted image"
+				tests_passing+="Test install operator|Test uninstall operator|Test encrypted image"
 			else
 				# echo "|Test encrypted image"
 				tests_passing+="|Test encrypted image"
@@ -51,7 +47,7 @@ parse_args() {
 		s)
 			if [ "$tests_passing" == "" ]; then
 				# echo "Test signed image"
-				tests_passing+="Test signed image"
+				tests_passing+="Test install operator|Test uninstall operator|Test signed image"
 			else
 				# echo "|Test signed image"
 				tests_passing+="|Test signed image"
@@ -60,7 +56,7 @@ parse_args() {
 		t)
 			if [ "$tests_passing" == "" ]; then
 				# echo "Test trust storage"
-				tests_passing+="Test trust storage"
+				tests_passing+="Test install operator|Test uninstall operator|Test trust storage"
 			else
 				# echo "|Test trust storage"
 				tests_passing+="|Test trust storage"
@@ -69,14 +65,13 @@ parse_args() {
 		o)
 			if [ "$tests_passing" == "" ]; then
 				# echo "Test trust storage"
-				tests_passing+="Test install operator|Test unstall operator"
+				tests_passing+="Test install operator|Test uninstall operator"
 			else
 				# echo "|Test trust storage"
-				tests_passing+="|Test uninstall operator|Test unstall operator"
+				tests_passing+="|Test uninstall operator|Test uninstall operator"
 			fi
 			;;
 		h) usage 0 ;;
-		# p) usage 0 ;;
 		*)
 			echo "Invalid option: -$OPTARG" >&2
 			usage 1
@@ -88,15 +83,8 @@ parse_args() {
 run_non_tee_tests() {
 
 	echo $tests_passing
-	# exit 0
-
 	bats -f "$tests_passing" \
 		"k8s_non_tee_cc.bats"
-
-}
-modify_config_json() {
-	old_value=$(awk -F"\"" '/podConfigPath/{print $4}' test_config.json)
-	sed -e "s@${old_value%/*}@$TEST_PATH@" -i test_config.json
 
 }
 print_image() {
@@ -107,15 +95,15 @@ print_image() {
 }
 main() {
 	parse_args $@
-	./serverinfo-stdout.sh
+	$TEST_PATH/serverinfo/serverinfo-stdout.sh
 	echo -e "\n\n"
 	echo "--------Operator Version--------"
-	OPERATOR_VERSION=$(jq -r .file.operator_version test_config.json)
+	OPERATOR_VERSION=$(jq -r .file.operator_version $TEST_PATH/config/test_config.json)
 	echo "Operator Version: $OPERATOR_VERSION"
 
 	echo -e "\n--------Test Images--------"
 
-	EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] test_config.json)
+	EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] $TEST_PATH/config/test_config.json)
 	echo -e "unsigned unencrpted images: "
 	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
 	echo -e "trust storage images: "
@@ -123,11 +111,9 @@ main() {
 	echo -e "signed images: "
 	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
 	echo -e "\n\n"
-	exit 0
 	echo "install Kubernetes"
-	./setup/setup.sh
-
-	modify_config_json
+	# exit 0
+	# $TEST_PATH/setup/setup.sh
 	run_non_tee_tests
 
 }

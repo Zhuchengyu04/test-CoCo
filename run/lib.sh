@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
+source run/common.bash
 
 parse_yaml() {
     local prefix=$2
@@ -172,7 +173,7 @@ switch_image_service_offload() {
 #
 clear_kernel_params() {
 
-    sudo sed -i -e 's#^\(kernel_params\) = "\(.*\)"#\1 = ""#g' \
+    sed -i -e 's#^\(kernel_params\) = "\(.*\)"#\1 = ""#g' \
         "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
 }
 # Wait until the pod is not 'Ready'. Fail if it hits the timeout.
@@ -197,7 +198,7 @@ kubernetes_wait_cc_snapshot_be_ready() {
     local pod_name="$1"
     local wait_time="${2:-120}"
 
-   kubectl wait --timeout=${wait_time}s --for=jsonpath='{.status.readyToUse}'=true volumesnapshot/new-snapshot-test
+    kubectl wait --timeout=${wait_time}s --for=jsonpath='{.status.readyToUse}'=true volumesnapshot/new-snapshot-test
 }
 # Create a pod and wait it be ready, otherwise fail.
 #
@@ -238,7 +239,7 @@ enable_full_debug() {
     load_runtime_config_path
 
     # Toggle all the debug flags on in kata's configuration.toml to enable full logging.
-     sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
+    sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
 
     # Also pass the initcall debug flags via Kernel parameters.
     # add_kernel_params "agent.log=debug" "initcall_debug"
@@ -488,7 +489,7 @@ setup_decryption_files_in_guest() {
 }
 
 kubernetes_create_ssh_demo_pod() {
-    kubectl apply -f "${FIXTURES_DIR}/k8s-cc-ssh.yaml" && pod=$(kubectl get pods -o jsonpath='{.items..metadata.name}') && kubectl wait --timeout=60s --for=condition=ready pods/$pod
+    kubectl apply -f "$TEST_COCO_PATH/../fixtures/k8s-cc-ssh.yaml" && pod=$(kubectl get pods -o jsonpath='{.items..metadata.name}') && kubectl wait --timeout=60s --for=condition=ready pods/$pod
 
     kubectl get pod $pod
 }
@@ -500,7 +501,7 @@ kubernetes_delete_ssh_demo_pod_if_exists() {
 }
 
 kubernetes_delete_ssh_demo_pod() {
-    kubectl delete -f "${FIXTURES_DIR}/k8s-cc-ssh.yaml"
+    kubectl delete -f "$TEST_COCO_PATH/../fixtures/k8s-cc-ssh.yaml"
 
     kubectl wait pod/$1 --for=delete --timeout=-30s
 }
@@ -527,21 +528,21 @@ setup_skopeo_signature_files_in_guest() {
 
 setup_common_signature_files_in_guest() {
     rootfs_directory="etc/containers/"
-    signatures_dir="${FIXTURES_DIR}/../signed/signatures"
+    signatures_dir="$TEST_COCO_PATH/../signed/signatures"
 
     if [ ! -d "${signatures_dir}" ]; then
         sudo mkdir "${signatures_dir}"
     fi
 
-    sudo tar -xf "${FIXTURES_DIR}/../signed/signatures.tar.gz" -C "${signatures_dir}"
+    sudo tar -xf "$TEST_COCO_PATH/../signed/signatures.tar.gz" -C "${signatures_dir}"
 
-    cp_to_guest_img "${rootfs_directory}" "${FIXTURES_DIR}/../signed"
+    cp_to_guest_img "${rootfs_directory}" "$TEST_COCO_PATH/../signed"
 }
 #"$test_tag Test can pull an unencrypted unsigned image from an unprotected registry"
 unencrypted_signed_image_from_unprotected_registry() {
-    pod_config="${FIXTURES_DIR}/unsigned-unprotected-pod-config.yaml"
+    pod_config="$TEST_COCO_PATH/../fixtures/unsigned-unprotected-pod-config.yaml"
     eval $(parse_yaml $pod_config "_")
-    echo  $_metadata_name 
+    echo $_metadata_name
     create_test_pod $pod_config
     if ! kubernetes_wait_cc_pod_be_running "$_metadata_name"; then
         # TODO: run this command for debugging. Maybe it should be
@@ -584,18 +585,18 @@ create_file_for_size() {
 }
 create_image_size() {
     for IMAGE in ${IMAGE_LISTS[@]}; do
-        UNIT=$(echo $IMAGE|sed 's/[^A-Z]//g')
-        SIZES=$(echo $IMAGE|sed 's/[^0-9 ]//g')
+        UNIT=$(echo $IMAGE | sed 's/[^A-Z]//g')
+        SIZES=$(echo $IMAGE | sed 's/[^0-9 ]//g')
         echo $UNIT
         echo $SIZES
         create_file_for_size $SIZES $UNIT
     done
-    
+
 }
 #generate .crt and .key
 generate_crt() {
     # openssl req -newkey rsa:4096 -nodes -sha256 -keyout ${CERTS_PATH}certs/domain.key -addext "subjectAltName = ${TYPE_NAME}:${REGISTRY_NAME}" -x509 -days 365 -out ${CERTS_PATH}certs/domain.crt
-    openssl req -newkey rsa:4096 -nodes -sha256 -keyout ${CERTS_PATH}certs/domain.key -addext "subjectAltName = ${TYPE_NAME}:${REGISTRY_NAME}" -x509 -days 365 -out ${CERTS_PATH}certs/domain.crt <<ESXU
+    openssl req -newkey rsa:4096 -nodes -sha256 -keyout $TEST_COCO_PATH/../certs/domain.key -addext "subjectAltName = ${TYPE_NAME}:${REGISTRY_NAME}" -x509 -days 365 -out $TEST_COCO_PATH/../certs/domain.crt <<ESXU
 12
 
 12
@@ -616,12 +617,12 @@ run_registry() {
         docker rm $REGISTRY_CONTAINER
     fi
     generate_crt
-    cp ${CERTS_PATH}certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
+    cp $TEST_COCO_PATH/../certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
 
     update-ca-certificates
 
     # Deploy docker registry
-    docker run -d --restart=always --name $REGISTRY_NAME -v ${CERTS_PATH}certs:/certs \
+    docker run -d --restart=always --name $REGISTRY_NAME -v $TEST_COCO_PATH/../certs:/certs \
         -e REGISTRY_HTTP_ADDR=0.0.0.0:$PORT -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
         -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key -p $PORT:$PORT registry:2
 
@@ -648,32 +649,35 @@ read_config() {
     export GOPATH=/root/go
     # export GOPATH=$(go env | grep GOPATH | cut -d'=' -f2)
     export TEST_DIR="$GOPATH/src/github.com/tests"
-    export RUNTIME_CONFIG_PATH=$(jq -r '.configPath.runtimeConfigPath' test_config.json)
-    export FIXTURES_DIR=$(jq -r '.configPath.podConfigPath' test_config.json)
+    echo $TEST_COCO_PATH
+    export RUNTIME_CONFIG_PATH=$(jq -r '.config.runtimeConfigPath' $TEST_COCO_PATH/../config/test_config.json)
+    export FIXTURES_DIR=$(jq -r '.config.podConfigPath' $TEST_COCO_PATH/../config/test_config.json)
     export CONFIG_FILES=($(ls -l ${RUNTIME_CONFIG_PATH} | awk '{print $9}'))
-    export CURRENT_CONFIG_FILES=${CONFIG_FILES[4]}
-    export katacontainers_repo_dir=$GOPATH/src/github.com/kata-containers/kata-containers
-    echo $katacontainers_repo_dir
-    export ROOTFS_IMAGE_PATH=$(jq -r '.file.rootfs' test_config.json)
-    export CONTAINERD_CONF_FILE=$(jq -r '.file.containerd_file' test_config.json)
-    export OPERATOR_VERSION=$(jq -r '.file.operator_version' test_config.json)
+    export CURRENT_CONFIG_FILES=${CONFIG_FILES[1]}
+    export RUNTIMECLASS=$(jq -r '.config.runtimes' $TEST_COCO_PATH/../config/test_config.json)
 
-    export IMAGE_LISTS=$(jq -r .file.image_lists[] test_config.json)
+    export katacontainers_repo_dir=$GOPATH/src/github.com/kata-containers/kata-containers
+    export ROOTFS_IMAGE_PATH=$(jq -r '.file.rootfs' $TEST_COCO_PATH/../config/test_config.json)
+    export CONTAINERD_CONF_FILE=$(jq -r '.file.containerd_file' $TEST_COCO_PATH/../config/test_config.json)
+    export OPERATOR_VERSION=$(jq -r '.file.operator_version' $TEST_COCO_PATH/../config/test_config.json)
+
+    export IMAGE_LISTS=$(jq -r .file.image_lists[] $TEST_COCO_PATH/../config/test_config.json)
     # export IMAGE_LISTS=(busybox redis mysql ruby rust swift)
-    # export NORMAL_IMAGE_LISTS=$(jq -r .file.image_lists[] test_config.json)
-    export EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] test_config.json)
+    # export NORMAL_IMAGE_LISTS=$(jq -r .file.image_lists[] $TEST_COCO_PATH/../config/test_config.json)
+    export EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] $TEST_COCO_PATH/../config/test_config.json)
     # export IMAGE_LISTS=(${NORMAL_IMAGE_LISTS[@]} ${EXAMPLE_IMAGE_LISTS[@]})
     export VERSION=latest
-    export CERTS_PATH=$(jq -r '.certificates.certsPath' test_config.json)
-    export TYPE_NAME=$(jq -r '.certificates.type' test_config.json)
-    export REGISTRY_NAME=$(jq -r '.certificates.registry' test_config.json)
-    export PORT=$(jq -r '.certificates.port' test_config.json)
-    export STORAGE_FILE_D=$(jq -r '.certificates.image_path' test_config.json)
-    export REGISTRY_IP=$(jq -r '.certificates.ip' test_config.json)
-    export GPG_EMAIL=$(jq -r '.certificates.gpg_email' test_config.json)
-    
-    backup
+    # export CERTS_PATH=$(jq -r '.certificates.certsPath' $TEST_COCO_PATH/../config/test_config.json)
+    export TYPE_NAME=$(jq -r '.certificates.type' $TEST_COCO_PATH/../config/test_config.json)
+    export REGISTRY_NAME=$(jq -r '.certificates.registry' $TEST_COCO_PATH/../config/test_config.json)
+    export PORT=$(jq -r '.certificates.port' $TEST_COCO_PATH/../config/test_config.json)
+    export STORAGE_FILE_D=$(jq -r '.certificates.image_path' $TEST_COCO_PATH/../config/test_config.json)
+    export REGISTRY_IP=$(jq -r '.certificates.ip' $TEST_COCO_PATH/../config/test_config.json)
+    export GPG_EMAIL=$(jq -r '.certificates.gpg_email' $TEST_COCO_PATH/../config/test_config.json)
 
+    if [ ! -d $katacontainers_repo_dir ]; then
+        git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
+    fi
 }
 
 backup() {
@@ -701,20 +705,16 @@ backup() {
     if [ ! -d $TEST_DIR ]; then
         mkdir -p $TEST_DIR
     fi
-    if [ ! -d $katacontainers_repo_dir ]; then
-        git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
-    fi
 
 }
+
 restore() {
-    cp -r $BACKUP_PATH$RUNTIME_CONFIG_PATH ${RUNTIME_CONFIG_PATH}
-    cp -r $BACKUP_PATH$FIXTURES_DIR ${FIXTURES_DIR}
-    cp $BACKUP_PATH$ROOTFS_IMAGE_PATH ${ROOTFS_IMAGE_PATH}
-    cp $BACKUP_PATH$CONTAINERD_CONF_FILE ${CONTAINERD_CONF_FILE}
+    # cp -r $BACKUP_PATH$RUNTIME_CONFIG_PATH ${RUNTIME_CONFIG_PATH}
+    # cp -r $BACKUP_PATH$FIXTURES_DIR ${FIXTURES_DIR}
+    # cp $BACKUP_PATH$ROOTFS_IMAGE_PATH ${ROOTFS_IMAGE_PATH}
+    # cp $BACKUP_PATH$CONTAINERD_CONF_FILE ${CONTAINERD_CONF_FILE}
     rm -r $katacontainers_repo_dir
     # rm -r $GOPATH
-    rm -r $BACKUP_PATH
-    export BACKUP_PATH=""
 }
 check_cc_runtime() {
     RUNTIMELISTS=("kata" "kata-clh" "kata-clh-tdx" "kata-qemu" "kata-qemu-sev" "kata-qemu-tdx")

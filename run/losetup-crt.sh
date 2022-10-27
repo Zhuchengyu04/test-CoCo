@@ -4,7 +4,7 @@ if [ ! -f $1 ]; then
     exit 1
 fi
 
-MNT_DIR=$(basename -s .img $1)
+source run/common.bash
 FLAG=$2
 
 echo $MNT_DIR
@@ -32,7 +32,7 @@ if [ $FLAG == "c" ]; then
     # rm  /mnt/$MNT_DIR/etc/ssl/certs/ca-certificates.crt
     # cat /root/kata/install_and_test_cc/test-kata/certs/domain.crt >> /mnt/kata-containers-ubuntu/etc/ssl/certs/ca-certificates.crt
 
-    cat /root/kata/test-kata/certs/domain.crt >>/mnt/$MNT_DIR/etc/ssl/certs/ca-certificates.crt
+    cat $TEST_COCO_PATH/../certs/domain.crt >>/mnt/$MNT_DIR/etc/ssl/certs/ca-certificates.crt
     # cp -r /usr/local/lib/rats-tls /mnt/$MNT_DIR/usr/local/lib/
     # cp -r /usr/local/include/rats-tls /mnt/$MNT_DIR/usr/local/include/
     # cp -r /usr/share/rats-tls  /mnt/$MNT_DIR/usr/share/
