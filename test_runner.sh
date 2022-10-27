@@ -14,62 +14,78 @@ Overview:
     Tests for confidential containers
     ${script_name} <command>
 Commands:
-	-b:	Multiple pod spec and container image tests
+	-u:	Multiple pod spec and container image tests
 	-e:	Encrypted image tests
 	-s:	Signed image tests
 	-t:	Trusted storage for container image tests
-	-o:	Install && Uninstall Operator tests
+	-n:	Attestation tests
+	-b:	Measured boot tests
+	-m:	Multiple registries tests
+	-i:	Image sharing tests
+	-o:	OnDemand image pulling tests
+	-p:	TD preserving tests
+	-c:	Common Cloud Native projects tests
+	-a:	All tests
 	-h:	help
 EOF
 }
 parse_args() {
-	while getopts "bestohd:" opt; do
+	tests_passing+="Test install operator"
+	while getopts "uestabmiopch :" opt; do
 		case $opt in
 
-		b)
-			if [ "$tests_passing" == "" ]; then
-				# echo "Test unencrypted unsigned image"
-				tests_passing+="Test install operator|Test uninstall operator|Test unencrypted unsigned image"
-			else
-				# echo "|Test unencrypted unsigned image"
-				tests_passing+="|Test unencrypted unsigned image"
-			fi
+		u)
+			tests_passing+="|Test unencrypted unsigned image"
 			;;
 		e)
-			if [ "$tests_passing" == "" ]; then
-				# echo "Test encrypted image"
-				tests_passing+="Test install operator|Test uninstall operator|Test encrypted image"
-			else
-				# echo "|Test encrypted image"
-				tests_passing+="|Test encrypted image"
-			fi
+
+			tests_passing+="|Test encrypted image"
 			;;
 		s)
-			if [ "$tests_passing" == "" ]; then
-				# echo "Test signed image"
-				tests_passing+="Test install operator|Test uninstall operator|Test signed image"
-			else
-				# echo "|Test signed image"
-				tests_passing+="|Test signed image"
-			fi
+			tests_passing+="|Test signed image"
 			;;
 		t)
-			if [ "$tests_passing" == "" ]; then
-				# echo "Test trust storage"
-				tests_passing+="Test install operator|Test uninstall operator|Test trust storage"
-			else
-				# echo "|Test trust storage"
-				tests_passing+="|Test trust storage"
-			fi
+
+			tests_passing+="|Test trust storage"
+			;;
+		n)
+			tests_passing+="|Test attestation"
+			;;
+		b)
+
+			tests_passing+="|Test measured boot"
+			;;
+		m)
+
+			tests_passing+="|Test multiple registries"
+			;;
+		i)
+
+			tests_passing+="|Test image sharing"
 			;;
 		o)
-			if [ "$tests_passing" == "" ]; then
-				# echo "Test trust storage"
-				tests_passing+="Test install operator|Test uninstall operator"
-			else
-				# echo "|Test trust storage"
-				tests_passing+="|Test uninstall operator|Test uninstall operator"
-			fi
+			tests_passing+="|Test OnDemand image pulling"
+			;;
+		p)
+
+			tests_passing+="|Test TD preserving"
+			;;
+		c)
+
+			tests_passing+="|Test common cloud native projects"
+			;;
+		a)
+			tests_passing+="|Test unencrypted unsigned image"
+			tests_passing+="|Test encrypted image"
+			tests_passing+="|Test signed image"
+			tests_passing+="|Test trust storage"
+			tests_passing+="|Test attestation"
+			tests_passing+="|Test measured boot"
+			tests_passing+="|Test multiple registries"
+			tests_passing+="|Test image sharing"
+			tests_passing+="|Test OnDemand image pulling"
+			tests_passing+="|Test TD preserving"
+			tests_passing+="|Test common cloud native projects"
 			;;
 		h) usage 0 ;;
 		*)
@@ -78,11 +94,13 @@ parse_args() {
 			;;
 		esac
 	done
+	tests_passing+="|Test uninstall operator"
+	echo $tests_passing
 }
 
 run_non_tee_tests() {
 
-	echo $tests_passing
+	
 	bats -f "$tests_passing" \
 		"k8s_non_tee_cc.bats"
 
@@ -101,7 +119,7 @@ main() {
 	OPERATOR_VERSION=$(jq -r .file.operator_version $TEST_PATH/config/test_config.json)
 	echo "Operator Version: $OPERATOR_VERSION"
 
-	echo -e "\n--------Test Images--------"
+	echo -e "\n--------Test Cases--------"
 
 	EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] $TEST_PATH/config/test_config.json)
 	echo -e "unsigned unencrpted images: "
@@ -110,6 +128,15 @@ main() {
 	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
 	echo -e "signed images: "
 	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
+	echo -e "encrypted images: "
+	print_image "${EXAMPLE_IMAGE_LISTS[@]}"
+	echo -e "Attestation: TODO"
+	echo -e "Measured boot: TODO"
+	echo -e "Multiple registries: TODO"
+	echo -e "Image sharing: TODO"
+	echo -e "OnDemand image pulling: TODO"
+	echo -e "TD Preserving: TODO"
+	echo -e "Common Cloud Native projects: TODO"
 	echo -e "\n\n"
 	echo "install Kubernetes"
 	# exit 0

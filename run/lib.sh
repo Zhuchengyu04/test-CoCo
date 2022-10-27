@@ -307,7 +307,11 @@ checkout_pod_yaml() {
     echo ${image_name,,}
     echo ${current_image_name,,}
     echo "--------------"
-    sed -i "s/${image_name,,}/${current_image_name,,}/g" $pod_config
+    # sed -i "s/${image_name,,}/${current_image_name,,}/g" $pod_config
+    # yq w  -i $pod_config 'spec.containers[0].image' ${REGISTRY_NAME}/${current_image_name}:$VERSION
+    # sed -r "s/(\s\+runtimeClassName:')[^']*/\1 ${RUNTIMECLASS}/" $pod_config
+    # sed -i "s/\(^\s\+runtimeClassName:\).*/\t${RUNTIMECLASS}/" $pod_config
+    # sed -i -e "s/\s\+runtimeClassName:\s\.*/${RUNTIMECLASS}/" $pod_config
     # exit 0
 }
 checkout_snapshot_yaml() {
@@ -489,7 +493,7 @@ setup_decryption_files_in_guest() {
 }
 
 kubernetes_create_ssh_demo_pod() {
-    kubectl apply -f "$TEST_COCO_PATH/../fixtures/k8s-cc-ssh.yaml" && pod=$(kubectl get pods -o jsonpath='{.items..metadata.name}') && kubectl wait --timeout=60s --for=condition=ready pods/$pod
+    kubectl apply -f "$1" && pod=$(kubectl get pods -o jsonpath='{.items..metadata.name}') && kubectl wait --timeout=60s --for=condition=ready pods/$pod
 
     kubectl get pod $pod
 }
@@ -501,7 +505,7 @@ kubernetes_delete_ssh_demo_pod_if_exists() {
 }
 
 kubernetes_delete_ssh_demo_pod() {
-    kubectl delete -f "$TEST_COCO_PATH/../fixtures/k8s-cc-ssh.yaml"
+    kubectl delete pod $1
 
     kubectl wait pod/$1 --for=delete --timeout=-30s
 }
@@ -522,6 +526,7 @@ $GPG_EMAIL
 ESXU
 }
 setup_skopeo_signature_files_in_guest() {
+    rootfs_directory="etc/containers/"
     setup_common_signature_files_in_guest
     cp_to_guest_img "${rootfs_directory}" "/etc/containers/registries.d"
 }
@@ -531,16 +536,16 @@ setup_common_signature_files_in_guest() {
     signatures_dir="$TEST_COCO_PATH/../signed/signatures"
 
     if [ ! -d "${signatures_dir}" ]; then
-        sudo mkdir "${signatures_dir}"
+        mkdir "${signatures_dir}"
     fi
 
-    sudo tar -xf "$TEST_COCO_PATH/../signed/signatures.tar.gz" -C "${signatures_dir}"
+    tar -xf "$TEST_COCO_PATH/../signed/signatures.tar.gz" -C "${signatures_dir}"
 
     cp_to_guest_img "${rootfs_directory}" "$TEST_COCO_PATH/../signed"
 }
 #"$test_tag Test can pull an unencrypted unsigned image from an unprotected registry"
 unencrypted_signed_image_from_unprotected_registry() {
-    pod_config="$TEST_COCO_PATH/../fixtures/unsigned-unprotected-pod-config.yaml"
+    pod_config="$1"
     eval $(parse_yaml $pod_config "_")
     echo $_metadata_name
     create_test_pod $pod_config
@@ -560,7 +565,7 @@ unencrypted_signed_image_from_unprotected_registry() {
 # @test "$test_tag Test can pull an encrypted image inside the guest with decryption key"
 pull_encrypted_image_inside_guest_with_decryption_key() {
 
-    kubernetes_create_ssh_demo_pod
+    kubernetes_create_ssh_demo_pod "$1"
 
     pod_id=$(kubectl get pods -o jsonpath='{.items..metadata.name}')
     kubernetes_delete_ssh_demo_pod_if_exists "$pod_id" || true
@@ -654,8 +659,8 @@ read_config() {
     export FIXTURES_DIR=$(jq -r '.config.podConfigPath' $TEST_COCO_PATH/../config/test_config.json)
     export CONFIG_FILES=($(ls -l ${RUNTIME_CONFIG_PATH} | awk '{print $9}'))
     export CURRENT_CONFIG_FILES=${CONFIG_FILES[1]}
-    export RUNTIMECLASS=$(jq -r '.config.runtimes' $TEST_COCO_PATH/../config/test_config.json)
-
+    export RUNTIMECLASS=$(jq -r '.config.runtimeClass' $TEST_COCO_PATH/../config/test_config.json)
+    echo $RUNTIMECLASS
     export katacontainers_repo_dir=$GOPATH/src/github.com/kata-containers/kata-containers
     export ROOTFS_IMAGE_PATH=$(jq -r '.file.rootfs' $TEST_COCO_PATH/../config/test_config.json)
     export CONTAINERD_CONF_FILE=$(jq -r '.file.containerd_file' $TEST_COCO_PATH/../config/test_config.json)

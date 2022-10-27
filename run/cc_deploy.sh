@@ -104,5 +104,4 @@ install_runtime() {
 }
 # main "$@"
 # reset_runtime
-# reset_runtime
 # install_runtime
