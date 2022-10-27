@@ -55,6 +55,7 @@ new_pod_config() {
 	done
 }
 @test "Test trust storage" {
+	export KUBECONFIG=/etc/kubernetes/admin.conf
 	# $TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
 	if [ ! -d $GOPATH/open-local ]; then
 		curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
