@@ -122,7 +122,7 @@ new_pod_config() {
 }
 @test "Test signed image" {
 	for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
-		skopeo --insecure-policy copy --sign-passphrase-file $TEST_COCO_PATH/../signed/passwd.txt --sign-by $GPG_EMAIL docker://zcy-Z390-AORUS-MASTER.sh.intel.com/$IMAGE:latest docker://zcy-Z390-AORUS-MASTER.sh.intel.com/$IMAGE:signed
+		skopeo --insecure-policy copy --sign-passphrase-file $TEST_COCO_PATH/../signed/passwd.txt --sign-by $GPG_EMAIL docker://$REGISTRY_NAME/$IMAGE:latest docker://$REGISTRY_NAME/$IMAGE:signed
 		tar -cf ${TEST_COCO_PATH}/../signed/signatures.tar.gz /var/lib/containers/sigstore/$IMAGE*
 		setup_skopeo_signature_files_in_guest
 		pod_config="$(new_pod_config $TEST_COCO_PATH/../fixtures/pod-config.yaml.in "$IMAGE" "$RUNTIMECLASS" "$REGISTRY_NAME/$IMAGE:signed")"
