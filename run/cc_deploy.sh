@@ -59,7 +59,7 @@ install_cc() {
     MASTER_NAME=$(kubectl get nodes | grep "control" | awk '{print $1}')
     kubectl label node $MASTER_NAME node-role.kubernetes.io/worker=
     # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/deploy/deploy.yaml
-
+    sed -i 's/latest/v0.1.0/g' $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
     kubectl apply -f $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
 
     # kubectl taint nodes --all node-role.kubernetes.io/control-plane-
