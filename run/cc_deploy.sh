@@ -51,7 +51,7 @@ reset_runtime() {
     rm -r $GOPATH/src/github.com/operator-0.1.0
 }
 install_cc() {
-    OPERATOR_VERSION=$(jq -r .file.operator_version $TEST_COCO_PATH/../config/test_config.json)
+    OPERATOR_VERSION=$(jq -r .file.operatorVersion $TEST_COCO_PATH/../config/test_config.json)
 
     wget https://github.com/confidential-containers/operator/archive/refs/tags/${OPERATOR_VERSION}.tar.gz
     tar -zxf v0.1.0.tar.gz -C $GOPATH/src/github.com/

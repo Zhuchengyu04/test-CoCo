@@ -1,0 +1,6 @@
+@test "Test_multiple_pod_spec_and_images ubuntu 117MB kata-qemu 2 2GB" {
+		pod_config="$(new_pod_config /../fixtures/multiple_pod_spec_and_images-config.yaml.in "ubuntu" "kata-qemu" "zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:latest" "2" "2")"
+
+		unencrypted_signed_image_from_unprotected_registry $pod_config
+		rm $pod_config
+}

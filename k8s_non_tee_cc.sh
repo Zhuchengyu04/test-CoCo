@@ -1,7 +1,5 @@
-#!/usr/bin/env bats
-
-load ./run/lib.sh
-load ./run/cc_deploy.sh
+source ./run/lib.sh
+source ./run/cc_deploy.sh
 
 test_tag="[cc][agent][kubernetes][containerd]"
 
@@ -9,18 +7,6 @@ setup() {
 	start_date=$(date +"%Y-%m-%d %H:%M:%S")
 
 }
-# Create a pod configuration out of a template file.
-#
-# Parameters:
-#	$1 - the container image.
-# Return:
-# 	the path to the configuration file. The caller should not care about
-# 	its removal afterwards as it is created under the bats temporary
-# 	directory.
-#
-# Environment variables:
-#	RUNTIMECLASS: set the runtimeClassName value from $RUNTIMECLASS.
-#
 new_pod_config() {
 	local base_config="$1"
 	local image="$2"
@@ -31,8 +17,7 @@ new_pod_config() {
 	IMAGE="$image" RUNTIMECLASS="$runtimeclass" REGISTRTYIMAGE="$registryimage" envsubst <"$base_config" >"$new_config"
 	echo "$new_config"
 }
-
-@test "Test install operator" {
+Test_install_operator() {
 	install_runtime
 	echo "Prepare containerd for Confidential Container"
 
@@ -46,7 +31,8 @@ new_pod_config() {
 
 	$TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
 }
-@test "Test unencrypted unsigned image" {
+Test_unencrypted_unsigned_image() {
+
 	for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		pod_config="$(new_pod_config $TEST_COCO_PATH/../fixtures/unsigned-unprotected-pod-config.yaml.in "$IMAGE" "$RUNTIMECLASS" "$REGISTRY_NAME/$IMAGE:$VERSION")"
 
@@ -54,9 +40,7 @@ new_pod_config() {
 		rm $pod_config
 	done
 }
-@test "Test trust storage" {
-	export KUBECONFIG=/etc/kubernetes/admin.conf
-	# $TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
+Test_trust_storage() {
 	if [ ! -d $GOPATH/open-local ]; then
 		curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 		git clone https://github.com/Zhuchengyu04/open-local.git "$GOPATH/open-local"
@@ -120,10 +104,10 @@ new_pod_config() {
 	helm delete open-local
 	rm -r $GOPATH/open-local
 }
-@test "Test signed image" {
+Test_signed_image() {
 	for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		skopeo --insecure-policy copy --sign-passphrase-file $TEST_COCO_PATH/../signed/passwd.txt --sign-by $GPG_EMAIL docker://$REGISTRY_NAME/$IMAGE:latest docker://$REGISTRY_NAME/$IMAGE:signed
-		tar -cf ${TEST_COCO_PATH}/../signed/signatures.tar.gz /var/lib/containers/sigstore/$IMAGE*
+		# tar -cf ${TEST_COCO_PATH}/../signed/signatures.tar.gz /var/lib/containers/sigstore/$IMAGE*
 		setup_skopeo_signature_files_in_guest $IMAGE
 		pod_config="$(new_pod_config $TEST_COCO_PATH/../fixtures/pod-config.yaml.in "$IMAGE" "$RUNTIMECLASS" "$REGISTRY_NAME/$IMAGE:signed")"
 		create_test_pod $pod_config
@@ -133,8 +117,8 @@ new_pod_config() {
 		rm $pod_config
 	done
 }
-@test "Test encrypted image" {
-	skip  "need to rebuild rootfs including eaa_bkc and guest kernel to test encrypted image, which is not supported in branch main of operator"
+Test_encrypted_image() {
+
 	generate_encrypted_image
 	VERDICTDID=$(ps ux | grep "verdictd" | grep -v "grep" | awk '{print $2}')
 	if [ "$VERDICTDID" == "" ]; then
@@ -153,32 +137,23 @@ new_pod_config() {
 	echo $VERDICTDID
 	kill -9 $VERDICTDID
 }
-@test "Test attestation" {
-	skip  "TODO"
-}
-@test "Test measured boot" {
-	skip  "TODO"
-}
-@test "Test multiple registries" {
-	skip  "TODO"
-}
-@test "Test image sharing" {
-	skip  "TODO"
-}
-@test "Test OnDemand image pulling" {
-	skip  "TODO"
-}
-@test "Test TD preserving" {
-	skip  "TODO"
-}
-@test "Test common cloud native projects" {
-	skip  "TODO"
-}
 
-@test "Test uninstall operator" {
+Test_uninstall_operator() {
 	reset_runtime
 }
-
+Test_cosign_image() {
+	# wget "https://github.com/sigstore/cosign/releases/download/v1.9.0/cosign_1.9.0_amd64.deb"
+	# dpkg -i cosign_1.9.0_amd64.deb
+	# (
+	# 	echo "intel"
+	# 	sleep 1
+	# 	echo "intel"
+	# 	sleep 1
+	# ) | cosign generate-key-pair
+	# (echo "intel") | cosign public-key --key cosign.key
+	cosign sign --key cosign.key zcy-Z390-AORUS-MASTER.sh.intel.com/redis:latest
+	# dpkg -r cosign
+}
 teardown() {
 
 	restore
@@ -192,3 +167,26 @@ teardown() {
 	fi
 
 }
+tests() {
+	export GOPATH=/root/go
+	export VERSION=latest
+	export TYPE_NAME="DNS"
+	export REGISTRY_NAME=$(jq -r '.certificates.registry' $TEST_COCO_PATH/../config/test_config.json)
+	export PORT=443
+	export EXAMPLE_IMAGE_LISTS=(busybox)
+	# run_registry
+	# pull_image
+	# curl https://zcy-Z390-AORUS-MASTER.sh.intel.com:443/v2/_catalog
+	# skopeo list-tags docker://zcy-Z390-AORUS-MASTER.sh.intel.com/redis
+	# cosign sign --key cosign.key zcy-Z390-AORUS-MASTER.sh.intel.com/redis:latest
+	# cosign verify --key cosign.pub $IMAGE_URI
+	skopeo --insecure-policy copy --sign-passphrase-file ./signed/passwd.txt --sign-by intel@intel.com docker://docker.io/nginx:latest docker://zcy-Z390-AORUS-MASTER.sh.intel.com/nginx:signed
+}
+main() {
+	setup
+	Test_install_operator
+	Test_signed_image
+	Test_uninstall_operator
+	teardown
+}
+main "$@"
