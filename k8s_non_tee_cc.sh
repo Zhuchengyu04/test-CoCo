@@ -185,7 +185,7 @@ tests() {
 main() {
 	setup
 	Test_install_operator
-	Test_signed_image
+	# Test_signed_image
 	Test_uninstall_operator
 	teardown
 }

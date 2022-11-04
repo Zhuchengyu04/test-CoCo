@@ -7,15 +7,15 @@ kind: Pod
 metadata:
   name: unsigned-unencrypted-cc
 spec:
-  runtimeClassName: $RUNTIMECLASSNAME
+  runtimeClassName: kata
   containers:
-    - name: $IMAGE
-      image: $REGISTRTYIMAGE
+    - name: redis
+      image: zcy-Z390-AORUS-MASTER.sh.intel.com/redis:latest
       imagePullPolicy: Always
       resources:
         limits:
-          cpu: "${LIMITCPU}"
-          memory: "${LIMITMEM}Gi"
+          cpu: "2"
+          memory: "4Gi"
         requests:
-          cpu: "${REQUESTCPU}"
-          memory: "${REQUESTMEM}Gi"
+          cpu: "2"
+          memory: "4Gi"

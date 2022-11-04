@@ -7,7 +7,7 @@ fi
 source run/common.bash
 FLAG=$2
 
-echo $MNT_DIR
+echo "MNT_DIR=$MNT_DIR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 #startsector=$(file $1 | awk '{match($11,/(.*),/,a);print a[1]}' )
 startsector=$(fdisk -l $1 | tail -n 1 | awk '{print $2}')
 #echo $?

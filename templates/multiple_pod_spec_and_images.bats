@@ -28,17 +28,3 @@ setup() {
 
 
 
-teardown() {
-
-	restore
-	#reset_runtime
-	# gpg --delete-keys $GPG_EMAIL
-	# gpg --delete-secret-keys $GPG_EMAIL
-	REGISTRY_CONTAINER=$(docker ps -a | grep "registry" | awk '{print $1}')
-	if [ -n "$REGISTRY_CONTAINER" ]; then
-		docker stop $REGISTRY_CONTAINER
-		docker rm $REGISTRY_CONTAINER
-	fi
-
-}
-

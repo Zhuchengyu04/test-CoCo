@@ -1,6 +1,0 @@
-@test "Test_multiple_pod_spec_and_images ubuntu 117MB kata-clh 2 1GB" {
-		pod_config="$(new_pod_config /../fixtures/multiple_pod_spec_and_images-config.yaml.in "ubuntu" "kata-clh" "zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:latest" "2" "1")"
-
-		unencrypted_signed_image_from_unprotected_registry $pod_config
-		rm $pod_config
-}

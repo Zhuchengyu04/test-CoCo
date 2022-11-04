@@ -1,6 +1,0 @@
-@test "Test_multiple_pod_spec_and_images redis 117MB kata-qemu 1 2GB" {
-		pod_config="$(new_pod_config /../fixtures/multiple_pod_spec_and_images-config.yaml.in "redis" "kata-qemu" "zcy-Z390-AORUS-MASTER.sh.intel.com/redis:latest" "1" "2")"
-
-		unencrypted_signed_image_from_unprotected_registry $pod_config
-		rm $pod_config
-}

@@ -9,13 +9,13 @@ metadata:
 spec:
   runtimeClassName: kata-qemu
   containers:
-    - name: ubuntu
-      image: zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:latest
+    - name: redis
+      image: zcy-Z390-AORUS-MASTER.sh.intel.com/redis:latest
       imagePullPolicy: Always
       resources:
         limits:
-          cpu: 1
-          memory: 1
+          cpu: "1"
+          memory: "16Gi"
         requests:
-          cpu: 1
-          memory: 1
+          cpu: "1"
+          memory: "16Gi"

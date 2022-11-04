@@ -95,8 +95,8 @@ parse_args() {
 			;;
 		esac
 	done
-	
-	echo $tests_passing
+
+	# echo $tests_passing
 }
 generate_tests() {
 	local base_config="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.template"
@@ -114,23 +114,25 @@ run_non_tee_tests() {
 		local new_pod_configs="$TEST_COCO_PATH/../tests/$(basename ${pod_configs})"
 		cp $pod_configs $new_pod_configs
 		for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
-			image_size=$(docker image ls | grep $IMAGE | head -1 | awk '{print $7}')
+			image_size=$(docker image ls | grep $image | head -1 | awk '{print $7}')
 			for runtimeclass in ${RUNTIMECLASS[@]}; do
 				for cpunums in ${CPUCONFIG[@]}; do
 					for memsize in ${MEMCONFIG[@]}; do
-						cat "$(generate_tests $image $image_size $runtimeclass $cpunums $memsize)"| tee -a  $new_pod_configs
-						tests_passing+="|${tests_config} $image $image_size $runtimeclass $cpunums ${memsize}GB"
+						cat "$(generate_tests $image $image_size $runtimeclass $cpunums $memsize)" | tee -a $new_pod_configs
+						tests_passing+="|${tests_config} $image $image_size $runtimeclass ${cpunums} ${memsize}GB"
 						# exit 0
+						# break 4
 					done
 				done
 			done
 		done
-		cat "$TEST_COCO_PATH/../templates/operator.bats" | tee -a  $new_pod_configs
+		cat "$TEST_COCO_PATH/../templates/operator.bats" | tee -a $new_pod_configs
 		tests_passing+="|Test uninstall operator"
 		echo $tests_passing
 		bats -f "$tests_passing" \
 			"$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats"
 		rm -f $TEST_COCO_PATH/../tests/*
+		rm -f "$TEST_COCO_PATH/../fixtures/multiple_pod_spec_and_images-config.yaml.in.*"
 	fi
 
 }
@@ -169,6 +171,9 @@ main() {
 	echo -e "\n\n"
 	echo "install Kubernetes"
 	# $TEST_PATH/setup/setup.sh
+	if [ -f /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf ]; then
+		rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
+	fi
 	run_non_tee_tests
 
 }

@@ -49,6 +49,11 @@ reset_runtime() {
         systemctl restart containerd
     fi
     rm -r $GOPATH/src/github.com/operator-0.1.0
+    REGISTRY_CONTAINER=$(docker ps -a | grep "registry" | awk '{print $1}')
+    if [ -n "$REGISTRY_CONTAINER" ]; then
+        docker stop $REGISTRY_CONTAINER
+        docker rm $REGISTRY_CONTAINER
+    fi
 }
 install_cc() {
     OPERATOR_VERSION=$(jq -r .file.operatorVersion $TEST_COCO_PATH/../config/test_config.json)

@@ -581,7 +581,7 @@ run_registry() {
     docker run -d --restart=always --name $REGISTRY_NAME -v $TEST_COCO_PATH/../certs:/certs \
         -e REGISTRY_HTTP_ADDR=0.0.0.0:$PORT -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
         -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key -p $PORT:$PORT registry:2
-
+    systemctl restart docker
     # docker run -d --restart=always --name zcy-Z390-AORUS-MASTER.sh.intel.com -v certs:/certs \
     #     -e REGISTRY_HTTP_ADDR=0.0.0.0:443 -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
     #     -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key -p 443:443 registry:2

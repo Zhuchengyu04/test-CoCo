@@ -10,14 +10,14 @@
 			"2"
 		],
 		"memSize": [
-			"1",
-			"2"
+			"4",
+			"8",
+			"16"
 		]
 	},
 	"file": {
 		"commentsImageLists": [
-			"ubuntu",
-			"redis"
+			"ubuntu"
 		],
 		"notCommentsImageLists": [
 			"example256M",
