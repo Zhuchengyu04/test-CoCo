@@ -3,11 +3,13 @@
 		"podConfigPath": "fixtures",
 		"runtimeClass": [
 			"kata-qemu",
-			"kata-clh"
+			"kata-clh",
+			"kata"
 		],
 		"cpuNum": [
-			"1",
-			"2"
+			"25",
+			"50",
+			"100"
 		],
 		"memSize": [
 			"4",
@@ -17,8 +19,8 @@
 	},
 	"file": {
 		"commentsImageLists": [
-			"ubuntu"
-		],
+			"ubuntu",
+			"nginx"		],
 		"notCommentsImageLists": [
 			"example256M",
 			"example512M",
@@ -39,7 +41,6 @@
 		}
 	},
 	"certificates": {
-		"certsPath": "./",
 		"type": "DNS",
 		"registry": "zcy-Z390-AORUS-MASTER.sh.intel.com",
 		"port": "443",

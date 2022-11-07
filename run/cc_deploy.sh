@@ -95,8 +95,8 @@ install_runtime() {
     systemctl daemon-reload
     systemctl restart containerd
     iptables -P FORWARD ACCEPT
-    kubeadm init --cri-socket /run/containerd/containerd.sock --pod-network-cidr=10.244.0.0/16 --image-repository registry.cn-hangzhou.aliyuncs.com/google_containers
-    # exit 0
+    kubeadm init --cri-socket /run/containerd/containerd.sock --pod-network-cidr=10.244.0.0/16 --image-repository registry.cn-hangzhou.aliyuncs.com/google_containers 
+    # --event-qps=0 --kube-api-qps=2000 --kube-api-burst=4000
     export KUBECONFIG=/etc/kubernetes/admin.conf
     kubectl taint nodes --all node-role.kubernetes.io/master-
     kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml

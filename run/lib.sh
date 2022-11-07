@@ -276,7 +276,7 @@ checkout_snapshot_yaml() {
     eval $(parse_yaml $pod_config "snapshot_")
     image_name=$(echo $snapshot_spec_source_persistentVolumeClaimName | cut -d '-' -f 2)
     echo ${image_name}
-    sed -i "s/${image_name,,}/${current_image_name,,}/g" $pod_config
+    # sed -i "s/${image_name,,}/${current_image_name,,}/g" $pod_config
 
 }
 # Copy local files to the guest image.
@@ -412,7 +412,7 @@ EOF
 
     for IMAGE in ${IMAGE_LISTS[@]}; do
         skopeo --insecure-policy copy docker://${REGISTRY_NAME}/${IMAGE}:latest oci:$STORAGE_FILE_D/${IMAGE}
-        skopeo copy --insecure-policy --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 oci:$STORAGE_FILE_D/${IMAGE} docker://${REGISTRY_NAME}/${IMAGE}-encrypted:latest
+        skopeo copy --insecure-policy --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 oci:$STORAGE_FILE_D/${IMAGE} docker://${REGISTRY_NAME}/${IMAGE}:encrypted
         rm -r $STORAGE_FILE_D/${IMAGE}
     done
 
@@ -623,7 +623,16 @@ new_pod_config() {
     IMAGE="$image" RUNTIMECLASSNAME="$runtimeclass" REGISTRTYIMAGE="$registryimage" LIMITCPU="$cpu_num" REQUESTCPU="$cpu_num" LIMITMEM="$mem_size" REQUESTMEM="$mem_size" envsubst <"$base_config" >"$new_config"
     echo "$new_config"
 }
+new_pod_config_normal() {
+    local base_config="$1"
+    local image="$2"
+    local runtimeclass="$3"
+    local registryimage="$4"
 
+    local new_config=$(mktemp "$TEST_COCO_PATH/../fixtures/$(basename ${base_config}).XXX")
+    IMAGE="$image" RUNTIMECLASSNAME="$runtimeclass" REGISTRTYIMAGE="$registryimage" envsubst <"$base_config" >"$new_config"
+    echo "$new_config"
+}
 read_config() {
     export KUBECONFIG=/etc/kubernetes/admin.conf
     export GOPATH=/root/go

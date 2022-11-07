@@ -3,7 +3,7 @@ kind: Pod
 metadata:
   name: encrypted-cc
 spec:
-  runtimeClassName: $RUNTIMECLASS
+  runtimeClassName: $RUNTIMECLASSNAME
   containers:
   - name: $IMAGE
     image:  $REGISTRTYIMAGE

@@ -38,14 +38,14 @@ spec:
       labels:
         app: lvm-cc
     spec:
-      runtimeClassName: $RUNTIMECLASSNAME
+      runtimeClassName: kata-qemu
       tolerations:
         - key: node-role.kubernetes.io/master
           operator: Exists
           effect: NoSchedule
       containers:
-      - name: $IMAGE
-        image: $REGISTRTYIMAGE
+      - name: ubuntu
+        image: zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:latest
         imagePullPolicy: Always
         volumeMounts:
         - mountPath: "/data"
