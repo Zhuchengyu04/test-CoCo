@@ -1,0 +1,18 @@
+@test "Test_encrypted_image ubuntu 77.8MB kata-qemu" {
+
+	# skip  "need to rebuild rootfs including eaa_bkc and guest kernel to test encrypted image, which is not supported in branch main of operator"
+	generate_encrypted_image
+	VERDICTDID=$(ps ux | grep "verdictd" | grep -v "grep" | awk '{print $2}')
+	if [ "$VERDICTDID" == "" ]; then
+		verdictd --listen 0.0.0.0:50000 --mutual >/dev/null 2>&1 &
+	fi
+	sleep 1
+	setup_decryption_files_in_guest
+	pod_config="$(new_pod_config_normal /../fixtures/encrypted_image-config.yaml.in "ubuntu" "kata-qemu" "zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:encrypted")"
+	pull_encrypted_image_inside_guest_with_decryption_key $pod_config
+	# assert_pod_fail "$pod_config"
+	rm $pod_config
+	VERDICTDID=$(ps ux | grep "verdictd " | grep -v "grep" | awk '{print $2}')
+	echo $VERDICTDID
+	kill -9 $VERDICTDID
+}

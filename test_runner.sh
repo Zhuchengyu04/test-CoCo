@@ -38,58 +38,40 @@ parse_args() {
 
 		u)
 			run_multiple_pod_spec_amd_images_config
-			# tests_passing+="|Test unencrypted unsigned image"
 			;;
 		e)
 			run_encrypted_image_config
-			# tests_passing+="|Test encrypted image"
 			;;
 		s)
 			run_signed_image_config
-			# tests_passing+="|Test signed image"
 			;;
 		t)
 			run_trust_storage_config
-			# tests_passing+="|Test trust storage"
 			;;
 		n)
-			# tests_passing+="|Test attestation"
 			;;
 		b)
 
-			# tests_passing+="|Test measured boot"
 			;;
 		m)
 
-			# tests_passing+="|Test multiple registries"
 			;;
 		i)
 
-			# tests_passing+="|Test image sharing"
 			;;
 		o)
-			# tests_passing+="|Test OnDemand image pulling"
 			;;
 		p)
 
-			# tests_passing+="|Test TD preserving"
 			;;
 		c)
 
-			# tests_passing+="|Test common cloud native projects"
 			;;
 		a)
-			# tests_passing+="|Test unencrypted unsigned image"
-			# tests_passing+="|Test encrypted image"
-			# tests_passing+="|Test signed image"
-			# tests_passing+="|Test trust storage"
-			# tests_passing+="|Test attestation"
-			# tests_passing+="|Test measured boot"
-			# tests_passing+="|Test multiple registries"
-			# tests_passing+="|Test image sharing"
-			# tests_passing+="|Test OnDemand image pulling"
-			# tests_passing+="|Test TD preserving"
-			# tests_passing+="|Test common cloud native projects"
+			run_multiple_pod_spec_amd_images_config
+			run_encrypted_image_config
+			run_signed_image_config
+			run_trust_storage_config
 			;;
 		h) usage 0 ;;
 		*)
@@ -176,7 +158,6 @@ run_trust_storage_config() {
 	done
 	cat "$TEST_COCO_PATH/../templates/operator_trust_storage.bats" | tee -a $new_pod_configs
 	tests_passing+="|Test uninstall operator"
-
 	bats -f "$tests_passing" \
 		"$TEST_COCO_PATH/../tests/trust_storage.bats"
 	rm -rf $TEST_COCO_PATH/../tests/*
@@ -259,6 +240,8 @@ main() {
 	echo -e "Common Cloud Native projects: TODO"
 	echo -e "\n\n"
 	echo "install Kubernetes"
+	echo "\n-------Test Result:-------"
+
 	# $TEST_PATH/setup/setup.sh
 	if [ -f /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf ]; then
 		rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf

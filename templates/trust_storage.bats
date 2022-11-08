@@ -10,7 +10,6 @@ setup() {
 
 }
 
-
 @test "Test install operator" {
 	install_runtime
 	echo "Prepare containerd for Confidential Container"
@@ -24,14 +23,17 @@ setup() {
 	run_registry
 
 	$TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
-    export KUBECONFIG=/etc/kubernetes/admin.conf
+	export KUBECONFIG=/etc/kubernetes/admin.conf
 	if [ ! -d $GOPATH/open-local ]; then
 		curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 		git clone https://github.com/Zhuchengyu04/open-local.git "$GOPATH/open-local"
 		cd $GOPATH/open-local
 		helm install open-local $GOPATH/open-local/helm
+		sleep 5
+	fi
+	if ! kubernetes_wait_open_local_be_ready; then
+		helm delete open-local
+		rm -r $GOPATH/open-local
+		return 1
 	fi
 }
-
-
-

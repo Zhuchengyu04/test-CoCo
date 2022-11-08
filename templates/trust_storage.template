@@ -32,7 +32,7 @@
 	SNAP_POD_NAME=$snap_metadata_name
 
 	if ! kubernetes_wait_cc_pod_be_ready "${SNAP_POD_NAME}-0"; then
-		kubernetes_delete_cc_pod_if_exists "${SNAP_POD_NAME}-0" || true
+		#kubernetes_delete_cc_pod_if_exists "${SNAP_POD_NAME}-0" || true
 		kubectl delete -f $pod_config_snap
 		kubectl delete pvc "html-${SNAP_POD_NAME}-0"
 		rm $pod_config
@@ -44,7 +44,7 @@
 		rm -r $go_path/open-local
 		return 1
 	fi
-	kubernetes_delete_cc_pod_if_exists "${SNAP_POD_NAME}-0" || true
+	#kubernetes_delete_cc_pod_if_exists "${SNAP_POD_NAME}-0" || true
 	kubectl delete -f $pod_config_snap
 	kubectl delete pvc "html-${SNAP_POD_NAME}-0"
 	rm $pod_config_snap	

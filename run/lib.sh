@@ -152,6 +152,12 @@ kubernetes_wait_cc_pod_be_running() {
 
     kubectl wait --timeout=${wait_time}s --for=jsonpath='{.status.phase}'=Running pods/$pod_name
 }
+kubernetes_wait_open_local_be_ready() {
+    local wait_time="${1:-300}"
+    echo "$NODE_NAME"
+    kubectl wait --timeout=${wait_time}s --for=jsonpath='{.status.filteredStorageInfo.volumeGroups[0]}'="open-local-pool-0" nodelocalstorage/$NODE_NAME
+}
+
 kubernetes_wait_cc_snapshot_be_ready() {
     local pod_name="$1"
     local wait_time="${2:-120}"
@@ -254,6 +260,13 @@ assert_logs_contain() {
     local message="$1"
     journalctl -x -t kata --since "$start_date" | grep "$message"
 }
+assert_pod_fail() {
+    local container_config="$1"
+    echo "In assert_pod_fail: "$container_config
+
+    echo "Attempt to create the container but it should fail"
+    ! kubernetes_create_cc_pod "$container_config" || /bin/false
+}
 checkout_pod_yaml() {
     pod_config=$1
     current_image_name=$2
@@ -271,8 +284,8 @@ checkout_pod_yaml() {
     # exit 0
 }
 checkout_snapshot_yaml() {
-    pod_config=$1
-    current_image_name=$2
+    local pod_config=$1
+    local current_image_name=$2
     eval $(parse_yaml $pod_config "snapshot_")
     image_name=$(echo $snapshot_spec_source_persistentVolumeClaimName | cut -d '-' -f 2)
     echo ${image_name}
@@ -373,7 +386,7 @@ generate_encrypted_image() {
     # cd $GOPATH/src/github.com/containers/skopeo && make bin/skopeo
     # apt-get install go-md2man
     # make install
-
+    IMAGE="$1"
     # Generate the key provider configuration file
     if [ ! -d /etc/containerd/ocicrypt/ ]; then
         mkdir -p /etc/containerd/ocicrypt/
@@ -410,11 +423,9 @@ EOF
 
     export OCICRYPT_KEYPROVIDER_CONFIG=/etc/containerd/ocicrypt/ocicrypt_keyprovider.conf
 
-    for IMAGE in ${IMAGE_LISTS[@]}; do
-        skopeo --insecure-policy copy docker://${REGISTRY_NAME}/${IMAGE}:latest oci:$STORAGE_FILE_D/${IMAGE}
-        skopeo copy --insecure-policy --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 oci:$STORAGE_FILE_D/${IMAGE} docker://${REGISTRY_NAME}/${IMAGE}:encrypted
-        rm -r $STORAGE_FILE_D/${IMAGE}
-    done
+    skopeo --insecure-policy copy docker://${REGISTRY_NAME}/${IMAGE}:latest oci:$STORAGE_FILE_D/${IMAGE}
+    skopeo copy --insecure-policy --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 oci:$STORAGE_FILE_D/${IMAGE} docker://${REGISTRY_NAME}/${IMAGE}:encrypted
+    rm -r $STORAGE_FILE_D/${IMAGE}
 
     # generate encrypted image
 
@@ -484,7 +495,7 @@ ESXU
 setup_skopeo_signature_files_in_guest() {
     rootfs_directory="etc/containers/"
     target_image="$1"
-    setup_common_signature_files_in_guest target_image="$1"
+    setup_common_signature_files_in_guest $target_image
     cp_to_guest_img "${rootfs_directory}" "/etc/containers/registries.d"
 }
 
@@ -645,7 +656,6 @@ read_config() {
     export CPUCONFIG=$(jq -r '.config.cpuNum[]' $TEST_COCO_PATH/../config/test_config.json)
     export MEMCONFIG=$(jq -r '.config.memSize[]' $TEST_COCO_PATH/../config/test_config.json)
 
-
     export katacontainers_repo_dir=$GOPATH/src/github.com/kata-containers/kata-containers
     export ROOTFS_IMAGE_PATH="/opt/confidential-containers/share/kata-containers/kata-ubuntu-latest.image"
     export CONTAINERD_CONF_FILE="/etc/containerd/config.toml"
@@ -659,6 +669,8 @@ read_config() {
     export VERSION=latest
     export TYPE_NAME=$(jq -r '.certificates.type' $TEST_COCO_PATH/../config/test_config.json)
     export REGISTRY_NAME=$(jq -r '.certificates.registry' $TEST_COCO_PATH/../config/test_config.json)
+    export NODE_NAME=$(jq -r '.certificates.nodeName' $TEST_COCO_PATH/../config/test_config.json)
+
     export PORT=$(jq -r '.certificates.port' $TEST_COCO_PATH/../config/test_config.json)
     export STORAGE_FILE_D=$(jq -r '.certificates.imagePath' $TEST_COCO_PATH/../config/test_config.json)
     export REGISTRY_IP=$(jq -r '.certificates.ip' $TEST_COCO_PATH/../config/test_config.json)

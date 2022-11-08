@@ -99,6 +99,7 @@ install_runtime() {
     # --event-qps=0 --kube-api-qps=2000 --kube-api-burst=4000
     export KUBECONFIG=/etc/kubernetes/admin.conf
     kubectl taint nodes --all node-role.kubernetes.io/master-
+    # exit 0
     kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
     install_cc
     if [ $? -eq 1 ]; then

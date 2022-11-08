@@ -3,8 +3,7 @@
 		"podConfigPath": "fixtures",
 		"runtimeClass": [
 			"kata-qemu",
-			"kata-clh",
-			"kata"
+			"kata-clh"
 		],
 		"cpuNum": [
 			"25",
@@ -20,7 +19,8 @@
 	"file": {
 		"commentsImageLists": [
 			"ubuntu",
-			"nginx"		],
+			"nginx"
+		],
 		"notCommentsImageLists": [
 			"example256M",
 			"example512M",
@@ -43,6 +43,7 @@
 	"certificates": {
 		"type": "DNS",
 		"registry": "zcy-Z390-AORUS-MASTER.sh.intel.com",
+		"nodeName": "zcy-z390-aorus-master",
 		"port": "443",
 		"imagePath": "./create_files",
 		"ip": "10.239.159.53",
