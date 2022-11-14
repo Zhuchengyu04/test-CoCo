@@ -130,7 +130,7 @@ Test_encrypted_image() {
 		verdictd --listen 0.0.0.0:50000 --mutual >/dev/null 2>&1 &
 	fi
 	sleep 1
-	setup_decryption_files_in_guest
+	setup_eaa_decryption_files_in_guest
 	# $TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
 	for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		pod_config="$(new_pod_config $TEST_COCO_PATH/../fixtures/k8s-cc-ssh.yaml.in "$IMAGE" "$RUNTIMECLASS" "$REGISTRY_NAME/$IMAGE:$VERSION")"
@@ -147,17 +147,46 @@ Test_uninstall_operator() {
 	reset_runtime
 }
 Test_cosign_image() {
-	# wget "https://github.com/sigstore/cosign/releases/download/v1.9.0/cosign_1.9.0_amd64.deb"
-	# dpkg -i cosign_1.9.0_amd64.deb
-	# (
-	# 	echo "intel"
-	# 	sleep 1
-	# 	echo "intel"
-	# 	sleep 1
-	# ) | cosign generate-key-pair
-	# (echo "intel") | cosign public-key --key cosign.key
-	cosign sign --key cosign.key zcy-Z390-AORUS-MASTER.sh.intel.com/redis:latest
+	local IMAGE="nginx"
+	local RUNTIMECLASSNAME="kata-qemu"
+	local REGISTRTYIMAGE="zcy-Z390-AORUS-MASTER.sh.intel.com/nginx:latest"
+	generate_cosign_image $(echo $REGISTRTYIMAGE | cut -d ":" -f1)
+	local offline_base_config="$TEST_COCO_PATH/../config/aa-offline_fs_kbc-resources.json.in"
+	local offline_new_config="$TEST_COCO_PATH/../tests/aa-offline_fs_kbc-resources.json"
+	local p_b="$(cat $TEST_COCO_PATH/../config/policy.json | base64)"
+	local policy_base64=$(echo $p_b |  tr -d '\n' | tr -d ' ')
+	local c_k_b="$(cat $TEST_COCO_PATH/../certs/cosign.pub | base64)"
+	local cosign_key_base64=$(echo $c_k_b |  tr -d '\n' | tr -d ' ')
+	POLICY_BASE64="$policy_base64" COSIGN_KEY_BASE64="$cosign_key_base64" envsubst <"$offline_base_config" >"$offline_new_config"
+
+	pod_config="$(new_pod_config_normal ${TEST_COCO_PATH}/../fixtures/cosign-config.yaml.in "$IMAGE" "$RUNTIMECLASSNAME" "$(echo $REGISTRTYIMAGE | cut -d "/" -f1)/cosigned/$IMAGE:cosigned")"
+	remove_kernel_param "agent.enable_signature_verification"
+	add_kernel_params "agent.aa_kbc_params=offline_fs_kbc::null"
+	add_kernel_params "agent.config_file=/etc/offline-agent-config.toml"
+	cp_to_guest_img "etc" "$TEST_COCO_PATH/../config/offline-agent-config.toml"
+	cp_to_guest_img "etc" "$TEST_COCO_PATH/../tests/aa-offline_fs_kbc-resources.json"
+	create_test_pod $pod_config
+	kubectl get pods
+	pod_id=$(kubectl get pods -o jsonpath='{.items..metadata.name}')
+	kubernetes_delete_cc_pod_if_exists $pod_id || true
+	# rm $pod_config
 	# dpkg -r cosign
+}
+Test_encrypted_image_offline() {
+
+	setup_decryption_files_in_guest
+	# OCICRYPT_KEYPROVIDER_CONFIG=ocicrypt.conf skopeo --insecure-policy copy  --encryption-key provider:attestation-agent:test docker://zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:latest docker://zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:sample_encrypted
+	# OCICRYPT_KEYPROVIDER_CONFIG=ocicrypt.conf skopeo copy --encryption-key provider:attestation-agent:$TEST_COCO_PATH/../fixtures/aa-offline_fs_kbc-keys.json:HUlOu8NWz8si11OZUzUJMnjiq/iZyHBJZMSD3BaqgMc= docker://zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:latest docker://zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:offline_encrypted
+
+	# add_kernel_params "agent.aa_kbc_params=sample_kbc::null"
+	# attestation-agent --keyprovider_sock 127.0.0.1:50000 >/dev/null 2>&1 &
+	kubernetes_create_ssh_demo_pod "$TEST_COCO_PATH/../fixtures/k8s-cc-ssh.yaml"
+
+	sleep 1
+	local pod_ip_address=$(kubectl get service ccv0-ssh -o jsonpath="{.spec.clusterIP}")
+	ssh-keygen -lf <(ssh-keyscan ${pod_ip_address} 2>/dev/null)
+
+	ssh -i $TEST_COCO_PATH/../fixtures/ccv0-ssh root@${pod_ip_address} -o StrictHostKeyChecking=accept-new exit
 }
 teardown() {
 
@@ -182,7 +211,7 @@ tests() {
 	# run_registry
 	# pull_image
 	# curl https://zcy-Z390-AORUS-MASTER.sh.intel.com:443/v2/_catalog
-	# skopeo list-tags docker://zcy-Z390-AORUS-MASTER.sh.intel.com/redis
+	# skopeo list-tags docker://zcy-Z390-AORUS-MASTER.sh.intel.com/nginx
 	# cosign sign --key cosign.key zcy-Z390-AORUS-MASTER.sh.intel.com/redis:latest
 	# cosign verify --key cosign.pub $IMAGE_URI
 	skopeo --insecure-policy copy --sign-passphrase-file ./signed/passwd.txt --sign-by intel@intel.com docker://docker.io/nginx:latest docker://zcy-Z390-AORUS-MASTER.sh.intel.com/nginx:signed
@@ -191,8 +220,20 @@ main() {
 	setup
 	# Test_install_operator
 
+	# install_runtime
+	echo "Prepare containerd for Confidential Container"
 	read_config
-	Test_trust_storage
+	# setup_http_proxy
+	# switch_image_service_offload on
+	# add_kernel_params "agent.log=debug"
+	# add_kernel_params "debug_console_enabled=true"
+	# run_registry
+	# $TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
+
+	Test_cosign_image
+	echo "Reconfigure Kata Containers"
+
+	# Test_encrypted_image_offline
 	# Test_uninstall_operator
 	# teardown
 }

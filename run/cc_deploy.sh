@@ -35,9 +35,9 @@ test_pod_for_ccruntime() {
     done
 }
 reset_runtime() {
-    # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
     export KUBECONFIG=/etc/kubernetes/admin.conf
-    kubectl delete -f $GOPATH/src/github.com/operator-0.1.0/config/samples/ccruntime.yaml
+    kubectl delete -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
+    # kubectl delete -f $GOPATH/src/github.com/operator-0.1.0/config/samples/ccruntime.yaml
     # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/deploy/deploy.yaml
 
     kubectl delete -f $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
@@ -63,8 +63,9 @@ install_cc() {
     rm v0.1.0.tar.gz
     MASTER_NAME=$(kubectl get nodes | grep "control" | awk '{print $1}')
     kubectl label node $MASTER_NAME node-role.kubernetes.io/worker=
-    # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/deploy/deploy.yaml
+
     sed -i 's/latest/v0.1.0/g' $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
+    # sed -i 's/latest/v0.1.0/g' deploy.yaml
     kubectl apply -f $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
 
     # kubectl taint nodes --all node-role.kubernetes.io/control-plane-
@@ -74,9 +75,8 @@ install_cc() {
         return 1
     fi
     sleep 1
-    # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
-
-    kubectl apply -f $GOPATH/src/github.com/operator-0.1.0/config/samples/ccruntime.yaml
+    kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
+    # kubectl apply -f $GOPATH/src/github.com/operator-0.1.0/config/samples/ccruntime.yaml
     # kubectl apply -f ./ccruntime.yaml
     test_pod_for_ccruntime
     if [ $? -eq 1 ]; then
@@ -95,8 +95,7 @@ install_runtime() {
     systemctl daemon-reload
     systemctl restart containerd
     iptables -P FORWARD ACCEPT
-    kubeadm init --cri-socket /run/containerd/containerd.sock --pod-network-cidr=10.244.0.0/16 --image-repository registry.cn-hangzhou.aliyuncs.com/google_containers 
-    # --event-qps=0 --kube-api-qps=2000 --kube-api-burst=4000
+    kubeadm init --cri-socket /run/containerd/containerd.sock --pod-network-cidr=10.244.0.0/16 --image-repository registry.cn-hangzhou.aliyuncs.com/google_containers
     export KUBECONFIG=/etc/kubernetes/admin.conf
     kubectl taint nodes --all node-role.kubernetes.io/master-
     # exit 0

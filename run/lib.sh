@@ -34,7 +34,13 @@ add_kernel_params() {
     local params="$@"
 
     sudo sed -i -e 's#^\(kernel_params\) = "\(.*\)"#\1 = "\2 '"$params"'"#g' \
-        "$RUNTIME_CONFIG_PATH/configuration.toml"
+        "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
+}
+remove_kernel_param() {
+	local param_name="${1}"
+
+	sudo sed -i "/kernel_params = /s/$param_name=[^[:space:]\"]*//g" \
+		"$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
 }
 # Get the 'kernel_params' property on kata's configuration.toml
 #
@@ -45,7 +51,7 @@ add_kernel_params() {
 #
 get_kernel_params() {
     local kernel_params=$(sed -n -e 's#^kernel_params = "\(.*\)"#\1#gp' \
-        "$RUNTIME_CONFIG_PATH/configuration.toml")
+        "$RUNTIME_CONFIG_PATH/configuration-qemu.toml")
 }
 # Configure containerd for confidential containers. Among other things, it ensures
 # the CRI handler is configured to deal with confidential container.
@@ -110,11 +116,11 @@ switch_image_service_offload() {
     case "$1" in
     "on")
         sudo sed -i -e 's/^\(service_offload\).*=.*$/\1 = true/g' \
-            "$RUNTIME_CONFIG_PATH/configuration.toml"
+            "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
         ;;
     "off")
         sudo sed -i -e 's/^\(service_offload\).*=.*$/\1 = false/g' \
-            "$RUNTIME_CONFIG_PATH/configuration.toml"
+            "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
 
         ;;
     *)
@@ -132,7 +138,7 @@ switch_image_service_offload() {
 clear_kernel_params() {
 
     sed -i -e 's#^\(kernel_params\) = "\(.*\)"#\1 = ""#g' \
-        "$RUNTIME_CONFIG_PATH/configuration.toml"
+        "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
 }
 # Wait until the pod is not 'Ready'. Fail if it hits the timeout.
 #
@@ -194,14 +200,14 @@ kubernetes_create_cc_pod() {
 enable_agent_console() {
 
     sudo sed -i -e 's/^# *\(debug_console_enabled\).*=.*$/\1 = true/g' \
-        "$RUNTIME_CONFIG_PATH/configuration.toml"
+        "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
 }
 
 enable_full_debug() {
     # Load the RUNTIME_CONFIG_PATH variable.
 
     # Toggle all the debug flags on in kata's configuration.toml to enable full logging.
-    sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' "$RUNTIME_CONFIG_PATH/configuration.toml"
+    sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
 
     # Also pass the initcall debug flags via Kernel parameters.
     # add_kernel_params "agent.log=debug" "initcall_debug"
@@ -317,7 +323,7 @@ cp_to_guest_img() {
     # local image_path="$(sudo -E PATH=$PATH kata-runtime kata-env --json | jq -r .Image.Path)"
 
     if [ -f "$image_path" ]; then
-        if ! sudo mount -o loop,offset=$((512 * 6144)) "$image_path" \
+        if ! mount -o loop,offset=$((512 * 6144)) "$image_path" \
             "$rootfs_dir"; then
             echo "Failed to mount the image file: $image_path"
             rm -rf "$rootfs_dir"
@@ -339,7 +345,7 @@ cp_to_guest_img() {
             return 1
         fi
     fi
-    sudo mkdir -p "${rootfs_dir}/${dest_dir}"
+    mkdir -p "${rootfs_dir}/${dest_dir}"
 
     for file in ${src_files[@]}; do
         if [ ! -f "$file" ] && [ ! -d "$file" ]; then
@@ -348,21 +354,21 @@ cp_to_guest_img() {
         fi
 
         if [ -f "$file" ]; then
-            sudo cp -af "${file}" "${rootfs_dir}/${dest_dir}"
+            cp -af "${file}" "${rootfs_dir}/${dest_dir}"
         else
-            sudo cp -ad "${file}" "${rootfs_dir}/${dest_dir}"
+            cp -ad "${file}" "${rootfs_dir}/${dest_dir}"
         fi
     done
     # umount "$rootfs_dir"
     # rm -rf "$rootfs_dir"
     if [ -f "$image_path" ]; then
-        if ! sudo umount "$rootfs_dir"; then
+        if ! umount "$rootfs_dir"; then
             echo "Failed to umount the directory: $rootfs_dir"
             rm -rf "$rootfs_dir"
             return 1
         fi
     else
-        if ! sudo bash -c "cd "${rootfs_dir}" && find . | \
+        if ! bash -c "cd "${rootfs_dir}" && find . | \
 			cpio -H newc -o | gzip -9 > ${initrd_path}"; then
             echo "Failed to compress the image file"
             rm -rf "$rootfs_dir"
@@ -371,6 +377,17 @@ cp_to_guest_img() {
     fi
 
     rm -rf "$rootfs_dir"
+}
+# In case the tests run behind a firewall where images needed to be fetched
+# through a proxy. 
+# Note: With measured rootfs enabled, we can not set proxy through
+# agent config file.
+setup_http_proxy() {
+	local https_proxy="${HTTPS_PROXY:-${https_proxy:-}}"
+	if [ -n "$https_proxy" ]; then
+		echo "Enable agent https proxy"
+		add_kernel_params "agent.https_proxy=$https_proxy"
+	fi
 }
 generate_encrypted_image() {
     # git clone https://github.com/containers/attestation-agent $GOPATH/src/github.com/attestation-agent
@@ -433,14 +450,14 @@ EOF
     echo $VERDICTDID
     sudo kill -9 $VERDICTDID
 }
-setup_offline_fs_kbc_agent_config_in_guest() {
+setup_eaa_kbc_agent_config_in_guest() {
     local rootfs_agent_config="/etc/agent-config.toml"
 
     # clone_katacontainers_repo
-    sudo -E AA_KBC_PARAMS='eaa_kbc::10.239.159.53:50000' envsubst <confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
-    # sudo -E AA_KBC_PARAMS="eaa_kbc::127.0.0:50000" envsubst <${katacontainers_repo_dir}/docs/how-to/data/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
+    sudo -E AA_KBC_PARAMS='eaa_kbc::10.239.159.53:50000' envsubst <$TEST_COCO_PATH/../config/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
 
     # sudo -E AA_KBC_PARAMS="offline_fs_kbc::null" HTTPS_PROXY="${HTTPS_PROXY:-${https_proxy:-}}" envsubst < ${katacontainers_repo_dir}/docs/how-to/data/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
+    # sudo -E AA_KBC_PARAMS='offline_fs_kbc::null' envsubst < $TEST_COCO_PATH/../config/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
 
     # TODO #5173 - remove this once the kernel_params aren't ignored by the agent config
     # Enable debug log_level and debug_console access based on env vars
@@ -454,13 +471,44 @@ setup_offline_fs_kbc_agent_config_in_guest() {
     # add_kernel_params "agent.config_file=${rootfs_agent_config}"
     # cat "${rootfs_agent_config}"
 }
-setup_decryption_files_in_guest() {
+setup_eaa_decryption_files_in_guest() {
 
-    setup_offline_fs_kbc_agent_config_in_guest
+    setup_eaa_kbc_agent_config_in_guest
 }
+setup_decryption_files_in_guest() {
+    # remove_kernel_param "agent.enable_signature_verification"
+    # rootfs_directory="etc/containers/"
+	# signatures_dir="$TEST_COCO_PATH/../signed"
 
+	# if [ ! -d "${signatures_dir}" ]; then
+	# 	sudo mkdir "${signatures_dir}"
+	# fi
+
+	# sudo tar -zvxf "$TEST_COCO_PATH/../signed/signatures.tar" -C "${signatures_dir}"
+
+	# cp_to_guest_img "${rootfs_directory}" "$TEST_COCO_PATH/../signed"
+    # add_kernel_params \
+	# 	"agent.container_policy_file=/etc/containers/quay_verification/quay_policy.json"
+	# rootfs_directory="etc/containers/"
+	# signatures_dir="$TEST_COCO_PATH/../tmp/quay_verification/signatures"
+    # cp_to_guest_img "${rootfs_directory}" "$TEST_COCO_PATH/../tmp/registries.d"
+	# if [ ! -d "${signatures_dir}" ]; then
+	# 	sudo mkdir "${signatures_dir}"
+	# fi
+
+	# sudo tar -zvxf "$TEST_COCO_PATH/../tmp/quay_verification/signatures.tar" -C "${signatures_dir}"
+
+	# cp_to_guest_img "${rootfs_directory}" "$TEST_COCO_PATH/../tmp/quay_verification"
+	cp_to_guest_img "etc" "$TEST_COCO_PATH/../config.toml"
+    cp_to_guest_img "etc" "$TEST_COCO_PATH/../fixtures/aa-offline_fs_kbc-resources.json"
+    add_kernel_params "agent.aa_kbc_params=offline_fs_kbc::null"
+
+     curl -Lo "${HOME}/aa-offline_fs_kbc-keys.json" https://raw.githubusercontent.com/confidential-containers/documentation/main/demos/ssh-demo/aa-offline_fs_kbc-keys.json
+    cp_to_guest_img "etc" "${HOME}/aa-offline_fs_kbc-keys.json" 
+    cp_to_guest_img "etc" "/etc/containers/"
+}
 kubernetes_create_ssh_demo_pod() {
-    kubectl apply -f "$1" && pod=$(kubectl get pods -o jsonpath='{.items..metadata.name}') && kubectl wait --timeout=60s --for=condition=ready pods/$pod
+    kubectl apply -f "$1" && pod=$(kubectl get pods -o jsonpath='{.items..metadata.name}') && kubectl wait --timeout=120s --for=condition=ready pods/$pod
 
     kubectl get pod $pod
 }
@@ -504,6 +552,59 @@ setup_common_signature_files_in_guest() {
     target_image_dir=$(ls /var/lib/containers/sigstore/ | grep "$1@sha256=*")
     cp_to_guest_img "${rootfs_sig_directory}" "$target_image_dir"
 
+}
+generate_tests_trust_storage() {
+	local base_config=$1
+	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+
+	IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2:$VERSION" pod_config="\$pod_config" go_path="\$GOPATH" test_coco_path="\$TEST_COCO_PATH" POD_NAME="\${POD_NAME}" pod_config_snap="\$pod_config_snap" snap_metadata_name="\$snap_metadata_name" SNAP_POD_NAME="\${SNAP_POD_NAME}" envsubst <"$base_config" >"$new_config"
+
+	echo "$new_config"
+}
+generate_tests_signed_image() {
+	local base_config=$1
+	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+
+	IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" pod_id="\$pod_id" envsubst <"$base_config" >"$new_config"
+
+	echo "$new_config"
+}
+generate_tests_encrypted_image() {
+	local base_config=$1
+	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+
+	IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" VERDICTDID="\$VERDICTDID" envsubst <"$base_config" >"$new_config"
+
+	echo "$new_config"
+}
+generate_cosign_image(){
+    local img=$1
+    # IMAGE=zcy-Z390-AORUS-MASTER.sh.intel.com/nginx:cosigned
+	local registrys=$(echo $img|cut -d "/" -f1)
+    local img_name=$(echo $img|cut -d "/" -f2)
+    docker tag $img $registrys/cosigned/$img_name:cosigned
+    docker push $registrys/cosigned/$img_name:cosigned
+	IMG_DIGEST=$registrys/cosigned/$img_name:cosigned@$(docker images --digests|grep "${img}"|grep cosigned|awk '{print $3}'|sed -n "1,1p")
+    /usr/bin/expect <<-EOF
+	spawn cosign sign --key $TEST_COCO_PATH/../config/cosign.key $IMG_DIGEST
+    expect "Enter password for private key:"
+    send "intel\r"
+    expect eof
+EOF
+}
+generate_tests_cosign_image() {
+    local base_config=$1
+    local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+    local offline_base_config="$TEST_COCO_PATH/../config/aa-offline_fs_kbc-resources.json.in"
+    local offline_new_config="$TEST_COCO_PATH/../tests/aa-offline_fs_kbc-resources.json"
+    local p_b="$(cat $TEST_COCO_PATH/../config/policy.json | base64)"
+    local policy_base64=$(echo $p_b | tr -d '\n' | tr -d ' ')
+    local c_k_b="$(cat $TEST_COCO_PATH/../certs/cosign.pub | base64)"
+    local cosign_key_base64=$(echo $c_k_b | tr -d '\n' | tr -d ' ')
+    POLICY_BASE64="$policy_base64" COSIGN_KEY_BASE64="$cosign_key_base64" envsubst <"$offline_base_config" >"$offline_new_config"
+    IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" pod_id="\$pod_id" envsubst <"$base_config" >"$new_config"
+
+    echo "$new_config"
 }
 #"$test_tag Test can pull an unencrypted unsigned image from an unprotected registry"
 unencrypted_signed_image_from_unprotected_registry() {

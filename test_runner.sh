@@ -48,25 +48,24 @@ parse_args() {
 		t)
 			run_trust_storage_config
 			;;
-		n)
-			;;
-		b)
+		n) ;;
 
-			;;
-		m)
+		b) ;;
 
-			;;
-		i)
+		m) ;;
 
-			;;
-		o)
-			;;
-		p)
+		i) ;;
 
-			;;
+		o) ;;
+
+		p) ;;
+
 		c)
-
+			run_cosigned_image_config
 			;;
+
+		d) ;;
+
 		a)
 			run_multiple_pod_spec_amd_images_config
 			run_encrypted_image_config
@@ -91,30 +90,7 @@ generate_tests() {
 
 	echo "$new_config"
 }
-generate_tests_trust_storage() {
-	local base_config=$1
-	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
 
-	IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2:$VERSION" pod_config="\$pod_config" go_path="\$GOPATH" test_coco_path="\$TEST_COCO_PATH" POD_NAME="\${POD_NAME}" pod_config_snap="\$pod_config_snap" snap_metadata_name="\$snap_metadata_name" SNAP_POD_NAME="\${SNAP_POD_NAME}" envsubst <"$base_config" >"$new_config"
-
-	echo "$new_config"
-}
-generate_tests_signed_image() {
-	local base_config=$1
-	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
-
-	IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" pod_id="\$pod_id" envsubst <"$base_config" >"$new_config"
-
-	echo "$new_config"
-}
-generate_tests_encrypted_image() {
-	local base_config=$1
-	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
-
-	IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" VERDICTDID="\$VERDICTDID" envsubst <"$base_config" >"$new_config"
-
-	echo "$new_config"
-}
 run_multiple_pod_spec_amd_images_config() {
 	local pod_configs="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.bats"
 	local new_pod_configs="$TEST_COCO_PATH/../tests/$(basename ${pod_configs})"
@@ -184,6 +160,29 @@ run_signed_image_config() {
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/signed_image-config.yaml.in.*
 }
+run_cosigned_image_config() {
+	local pod_configs="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.bats"
+	local new_pod_configs="$TEST_COCO_PATH/../tests/cosigned_image.bats"
+	local str="Test_cosigned_image"
+	tests_passing="Test install operator"
+	cp $pod_configs $new_pod_configs
+	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
+		docker pull $image
+		image_size=$(docker image ls | grep $image | head -1 | awk '{print $7}')
+
+		for runtimeclass in ${RUNTIMECLASS[@]}; do
+			cat "$(generate_tests_cosign_image "$TEST_COCO_PATH/../templates/cosigned_image.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs
+			tests_passing+="|${str} $image $image_size $runtimeclass"
+		done
+	done
+	cat "$TEST_COCO_PATH/../templates/operator.bats" | tee -a $new_pod_configs
+	tests_passing+="|Test uninstall operator"
+
+	bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../tests/cosigned_image.bats"
+	rm -rf $TEST_COCO_PATH/../tests/*
+	rm -rf $TEST_COCO_PATH/../fixtures/cosign-config.yaml.in.*
+}
 run_encrypted_image_config() {
 	local pod_configs="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.bats"
 	local new_pod_configs="$TEST_COCO_PATH/../tests/encrypted_image.bats"
@@ -240,7 +239,7 @@ main() {
 	echo -e "Common Cloud Native projects: TODO"
 	echo -e "\n\n"
 	echo "install Kubernetes"
-	echo "\n-------Test Result:-------"
+	echo -e "\n-------Test Result:-------"
 
 	# $TEST_PATH/setup/setup.sh
 	if [ -f /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf ]; then
