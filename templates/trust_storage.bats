@@ -27,9 +27,8 @@ setup() {
 	if [ ! -d $GOPATH/open-local ]; then
 		curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 		git clone https://github.com/Zhuchengyu04/open-local.git "$GOPATH/open-local"
-		cd $GOPATH/open-local
 		helm install open-local $GOPATH/open-local/helm
-		sleep 5
+		sleep 10
 	fi
 	if ! kubernetes_wait_open_local_be_ready; then
 		helm delete open-local

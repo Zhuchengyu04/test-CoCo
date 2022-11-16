@@ -1,4 +1,5 @@
 @test "Test_signed_image $IMAGE $IMAGE_SIZE $RUNTIMECLASSNAME" {
+	set_runtimeclass_config $RUNTIMECLASSNAME
 	skopeo --insecure-policy copy --sign-passphrase-file ${test_coco_path}/../signed/passwd.txt --sign-by $GPG_EMAIL docker://$REGISTRTYIMAGE:latest  docker://$REGISTRTYIMAGE:signed
 	tar -cf ${test_coco_path}/../signed/signatures.tar.gz /var/lib/containers/sigstore/$IMAGE*
 	setup_skopeo_signature_files_in_guest $IMAGE

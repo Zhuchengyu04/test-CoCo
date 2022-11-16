@@ -35,12 +35,15 @@ test_pod_for_ccruntime() {
     done
 }
 reset_runtime() {
+    OPERATOR_VERSION=$(jq -r .file.operatorVersion $TEST_COCO_PATH/../config/test_config.json)
     export KUBECONFIG=/etc/kubernetes/admin.conf
     kubectl delete -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
     # kubectl delete -f $GOPATH/src/github.com/operator-0.1.0/config/samples/ccruntime.yaml
     # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/deploy/deploy.yaml
 
-    kubectl delete -f $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
+    # kubectl delete -f $GOPATH/src/github.com/operator-${OPERATOR_VERSION}/deploy/deploy.yaml
+    kubectl delete -k github.com/confidential-containers/operator/config/release?ref=v${OPERATOR_VERSION}
+
     kubectl delete -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
     kubeadm reset -f
     if [ -f /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf ]; then
@@ -48,26 +51,26 @@ reset_runtime() {
         systemctl daemon-reload
         systemctl restart containerd
     fi
-    rm -r $GOPATH/src/github.com/operator-0.1.0
+    # rm -r $GOPATH/src/github.com/operator-${OPERATOR_VERSION}
     REGISTRY_CONTAINER=$(docker ps -a | grep "registry" | awk '{print $1}')
     if [ -n "$REGISTRY_CONTAINER" ]; then
         docker stop $REGISTRY_CONTAINER
         docker rm $REGISTRY_CONTAINER
     fi
+    return 0
 }
 install_cc() {
     OPERATOR_VERSION=$(jq -r .file.operatorVersion $TEST_COCO_PATH/../config/test_config.json)
 
-    wget https://github.com/confidential-containers/operator/archive/refs/tags/${OPERATOR_VERSION}.tar.gz
-    tar -zxf v0.1.0.tar.gz -C $GOPATH/src/github.com/
-    rm v0.1.0.tar.gz
+    # wget https://github.com/confidential-containers/operator/archive/refs/tags/v${OPERATOR_VERSION}.tar.gz
+    # tar -zxf v${OPERATOR_VERSION}.tar.gz -C $GOPATH/src/github.com/
+    # rm v${OPERATOR_VERSION}.tar.gz
     MASTER_NAME=$(kubectl get nodes | grep "control" | awk '{print $1}')
     kubectl label node $MASTER_NAME node-role.kubernetes.io/worker=
 
-    sed -i 's/latest/v0.1.0/g' $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
-    # sed -i 's/latest/v0.1.0/g' deploy.yaml
-    kubectl apply -f $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
-
+    # sed -i 's/latest/v0.1.0/g' $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
+    # kubectl apply -f $GOPATH/src/github.com/operator-${OPERATOR_VERSION}/deploy/deploy.yaml
+    kubectl apply -k github.com/confidential-containers/operator/config/release?ref=v${OPERATOR_VERSION}
     # kubectl taint nodes --all node-role.kubernetes.io/control-plane-
     test_pod_for_deploy
     if [ $? -eq 1 ]; then
@@ -76,8 +79,7 @@ install_cc() {
     fi
     sleep 1
     kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
-    # kubectl apply -f $GOPATH/src/github.com/operator-0.1.0/config/samples/ccruntime.yaml
-    # kubectl apply -f ./ccruntime.yaml
+    # kubectl apply -f $GOPATH/src/github.com/operator-${OPERATOR_VERSION}/config/samples/ccruntime.yaml
     test_pod_for_ccruntime
     if [ $? -eq 1 ]; then
         echo "ERROR: confidential container runtime deploy failed !"

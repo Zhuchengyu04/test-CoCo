@@ -44,7 +44,6 @@ Test_trust_storage() {
 	if [ ! -d $GOPATH/open-local ]; then
 		curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 		git clone https://github.com/Zhuchengyu04/open-local.git "$GOPATH/open-local"
-		cd $GOPATH/open-local
 		helm install open-local $GOPATH/open-local/helm
 		sleep 5
 	fi
@@ -154,9 +153,9 @@ Test_cosign_image() {
 	local offline_base_config="$TEST_COCO_PATH/../config/aa-offline_fs_kbc-resources.json.in"
 	local offline_new_config="$TEST_COCO_PATH/../tests/aa-offline_fs_kbc-resources.json"
 	local p_b="$(cat $TEST_COCO_PATH/../config/policy.json | base64)"
-	local policy_base64=$(echo $p_b |  tr -d '\n' | tr -d ' ')
+	local policy_base64=$(echo $p_b | tr -d '\n' | tr -d ' ')
 	local c_k_b="$(cat $TEST_COCO_PATH/../certs/cosign.pub | base64)"
-	local cosign_key_base64=$(echo $c_k_b |  tr -d '\n' | tr -d ' ')
+	local cosign_key_base64=$(echo $c_k_b | tr -d '\n' | tr -d ' ')
 	POLICY_BASE64="$policy_base64" COSIGN_KEY_BASE64="$cosign_key_base64" envsubst <"$offline_base_config" >"$offline_new_config"
 
 	pod_config="$(new_pod_config_normal ${TEST_COCO_PATH}/../fixtures/cosign-config.yaml.in "$IMAGE" "$RUNTIMECLASSNAME" "$(echo $REGISTRTYIMAGE | cut -d "/" -f1)/cosigned/$IMAGE:cosigned")"
@@ -173,21 +172,19 @@ Test_cosign_image() {
 	# dpkg -r cosign
 }
 Test_encrypted_image_offline() {
-
-	setup_decryption_files_in_guest
-	# OCICRYPT_KEYPROVIDER_CONFIG=ocicrypt.conf skopeo --insecure-policy copy  --encryption-key provider:attestation-agent:test docker://zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:latest docker://zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:sample_encrypted
-	# OCICRYPT_KEYPROVIDER_CONFIG=ocicrypt.conf skopeo copy --encryption-key provider:attestation-agent:$TEST_COCO_PATH/../fixtures/aa-offline_fs_kbc-keys.json:HUlOu8NWz8si11OZUzUJMnjiq/iZyHBJZMSD3BaqgMc= docker://zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:latest docker://zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:offline_encrypted
-
-	# add_kernel_params "agent.aa_kbc_params=sample_kbc::null"
-	# attestation-agent --keyprovider_sock 127.0.0.1:50000 >/dev/null 2>&1 &
-	kubernetes_create_ssh_demo_pod "$TEST_COCO_PATH/../fixtures/k8s-cc-ssh.yaml"
-
-	sleep 1
-	local pod_ip_address=$(kubectl get service ccv0-ssh -o jsonpath="{.spec.clusterIP}")
-	ssh-keygen -lf <(ssh-keyscan ${pod_ip_address} 2>/dev/null)
-
-	ssh -i $TEST_COCO_PATH/../fixtures/ccv0-ssh root@${pod_ip_address} -o StrictHostKeyChecking=accept-new exit
+	generate_offline_encrypted_image nginx
+	setup_offline_decryption_files_in_guest
+	pod_config="$(new_pod_config_normal $TEST_COCO_PATH/../fixtures/offline-encrypted-config.yaml.in "nginx" "kata-qemu" "zcy-Z390-AORUS-MASTER.sh.intel.com/nginx:offline-encrypted")"
+	# OCICRYPT_KEYPROVIDER_CONFIG=ocicrypt.conf skopeo --insecure-policy copy --encryption-key provider:attestation-agent:/etc/aa-offline_fs_kbc-keys.json:key_id docker://zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:latest docker://zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:offline-encrypted
+	pull_encrypted_image_inside_guest_with_decryption_key $pod_config
+	# kubernetes_create_ssh_demo_pod "$TEST_COCO_PATH/../fixtures/offline-encrypted-config.yaml"
 }
+Test_measured_boot_image() {
+	switch_measured_rootfs_verity_scheme dm-verity
+	cp_to_guest_img "etc" "$TEST_COCO_PATH/../config/offline-agent-config.toml"
+	unencrypted_signed_image_from_unprotected_registry $TEST_COCO_PATH/../fixtures/unsigned-unprotected-pod-config.yaml
+}
+
 teardown() {
 
 	restore
@@ -218,22 +215,19 @@ tests() {
 }
 main() {
 	setup
-	# Test_install_operator
-
-	# install_runtime
-	echo "Prepare containerd for Confidential Container"
 	read_config
-	# setup_http_proxy
-	# switch_image_service_offload on
-	# add_kernel_params "agent.log=debug"
-	# add_kernel_params "debug_console_enabled=true"
-	# run_registry
-	# $TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
+	run_registry
 
-	Test_cosign_image
-	echo "Reconfigure Kata Containers"
+	$TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
+	# Test_install_operator
+	# start_local_registry
+	# install_runtime
+	# read_config
+	# switch_measured_rootfs_verity_scheme none
+	# Test_measured_boot_image
+	# Test_cosign_image
 
-	# Test_encrypted_image_offline
+	Test_encrypted_image_offline
 	# Test_uninstall_operator
 	# teardown
 }

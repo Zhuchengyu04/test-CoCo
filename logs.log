@@ -1,0 +1,139 @@
+Ubuntu 20.04.5 LTS \n \l
+HostName: zcy-Z390-AORUS-MASTER
+Kernel: 5.15.0-52-generic
+	Product Name: Z390 AORUS MASTER
+	Serial Number: WO155815L02S001
+
+--------BIOS:-------
+Vendor: American Megatrends Inc.
+Version: F11c
+Release Date: 12/18/2019
+Runtime Size: 64 kB
+ROM Size: 16 MB
+BIOS Revision: 5.13
+
+--------CPU:-------
+CPU op-mode(s):                  32-bit, 64-bit
+CPU(s):                          8
+On-line CPU(s) list:             0-7
+CPU family:                      6
+Model name:                      Intel(R) Core(TM) i7-9700 CPU @ 3.00GHz
+CPU MHz:                         3000.000
+CPU max MHz:                     4700.0000
+CPU min MHz:                     800.0000
+
+------Memory:------
+Physical Memory Array
+Location: System Board Or Motherboard
+Use: System Memory
+Error Correction Type: None
+Maximum Capacity: 64 GB
+Error Information Handle: Not Provided
+Number Of Devices: 4
+
+Size: 16384 MB		Speed: 2666 MT/s		
+Size: 16384 MB		Speed: 2666 MT/s		
+Size: 16384 MB		Speed: 2666 MT/s		
+Size: 16384 MB		Speed: 2666 MT/s		
+
+-------Disk:-------
+  *-namespace
+       description: NVMe namespace
+       physical id: 1
+       logical name: /dev/nvme0n1
+       size: 953GiB (1024GB)
+       capabilities: partitioned partitioned:dos
+       configuration: logicalsectorsize=512 sectorsize=512 signature=d6ce0081
+  *-disk
+       description: ATA Disk
+       product: CT1000MX500SSD1
+       physical id: 0.0.0
+       logical name: /dev/sda
+       version: 032
+       size: 931GiB (1TB)
+       capabilities: gpt-1.00 partitioned partitioned:gpt
+       configuration: ansiversion=5 guid=9ff0a851-5b2b-42a6-9d6c-8107e045fb0b logicalsectorsize=512 sectorsize=4096
+
+
+
+
+--------Functions to be tested with testing images--------
+multiple pod spec and images: 
+    ubuntu 77.8MB
+    nginx 142MB
+trust storage images: 
+    ubuntu 77.8MB
+    nginx 142MB
+signed images: 
+    ubuntu 77.8MB
+    nginx 142MB
+encrypted images: 
+    ubuntu 77.8MB
+    nginx 142MB
+offline-encrypted images: 
+    ubuntu 77.8MB
+    nginx 142MB
+cosigned images: 
+    ubuntu 77.8MB
+    nginx 142MB
+Attestation: TODO
+Measured boot: TODO
+Multiple registries: TODO
+Image sharing: TODO
+OnDemand image pulling: TODO
+TD Preserving: TODO
+Common Cloud Native projects: TODO
+
+
+-------Install Depedencies:-------
+
+install Kubernetes
+install bats
+--------Operator Version--------
+Operator Version: 0.2.0
+Kernel: vmlinux-5.19.2-96
+Runtime: 3.1.0-alpha0
+Hypervisor: QEMU emulator version 6.2.0 (kata-static)
+
+-------Test Result:-------
+
+1..38
+ok 1 Test install operator
+ok 2 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 25 4GB
+ok 3 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 25 8GB
+ok 4 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 25 16GB
+ok 5 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 50 4GB
+ok 6 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 50 8GB
+ok 7 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 50 16GB
+ok 8 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 100 4GB
+ok 9 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 100 8GB
+ok 10 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 100 16GB
+ok 11 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 25 4GB
+ok 12 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 25 8GB
+ok 13 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 25 16GB
+ok 14 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 50 4GB
+ok 15 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 50 8GB
+ok 16 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 50 16GB
+ok 17 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 100 4GB
+ok 18 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 100 8GB
+ok 19 Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 100 16GB
+ok 20 Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 25 4GB
+ok 21 Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 25 8GB
+ok 22 Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 25 16GB
+ok 23 Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 50 4GB
+ok 24 Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 50 8GB
+ok 25 Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 50 16GB
+ok 26 Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 100 4GB
+ok 27 Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 100 8GB
+ok 28 Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 100 16GB
+ok 29 Test_multiple_pod_spec_and_images nginx 142MB kata-clh 25 4GB
+ok 30 Test_multiple_pod_spec_and_images nginx 142MB kata-clh 25 8GB
+ok 31 Test_multiple_pod_spec_and_images nginx 142MB kata-clh 25 16GB
+ok 32 Test_multiple_pod_spec_and_images nginx 142MB kata-clh 50 4GB
+ok 33 Test_multiple_pod_spec_and_images nginx 142MB kata-clh 50 8GB
+ok 34 Test_multiple_pod_spec_and_images nginx 142MB kata-clh 50 16GB
+ok 35 Test_multiple_pod_spec_and_images nginx 142MB kata-clh 100 4GB
+ok 36 Test_multiple_pod_spec_and_images nginx 142MB kata-clh 100 8GB
+ok 37 Test_multiple_pod_spec_and_images nginx 142MB kata-clh 100 16GB
+ok 38 Test uninstall operator
+

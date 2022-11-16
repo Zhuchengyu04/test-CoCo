@@ -6,14 +6,10 @@
 			"kata-clh"
 		],
 		"cpuNum": [
-			"25",
-			"50",
 			"100"
 		],
 		"memSize": [
-			"4",
-			"8",
-			"16"
+			"4"
 		]
 	},
 	"file": {
@@ -31,7 +27,7 @@
 			"example16G"
 		],
 		"imageLists": [],
-		"operatorVersion": "v0.1.0"
+		"operatorVersion": "0.2.0"
 	},
 	"proxies": {
 		"default": {

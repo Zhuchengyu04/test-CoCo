@@ -34,13 +34,13 @@ add_kernel_params() {
     local params="$@"
 
     sudo sed -i -e 's#^\(kernel_params\) = "\(.*\)"#\1 = "\2 '"$params"'"#g' \
-        "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
+        "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 }
 remove_kernel_param() {
-	local param_name="${1}"
+    local param_name="${1}"
 
-	sudo sed -i "/kernel_params = /s/$param_name=[^[:space:]\"]*//g" \
-		"$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
+    sudo sed -i "/kernel_params = /s/$param_name=[^[:space:]\"]*//g" \
+        "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 }
 # Get the 'kernel_params' property on kata's configuration.toml
 #
@@ -51,7 +51,7 @@ remove_kernel_param() {
 #
 get_kernel_params() {
     local kernel_params=$(sed -n -e 's#^kernel_params = "\(.*\)"#\1#gp' \
-        "$RUNTIME_CONFIG_PATH/configuration-qemu.toml")
+        "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}")
 }
 # Configure containerd for confidential containers. Among other things, it ensures
 # the CRI handler is configured to deal with confidential container.
@@ -116,11 +116,11 @@ switch_image_service_offload() {
     case "$1" in
     "on")
         sudo sed -i -e 's/^\(service_offload\).*=.*$/\1 = true/g' \
-            "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
+            "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
         ;;
     "off")
         sudo sed -i -e 's/^\(service_offload\).*=.*$/\1 = false/g' \
-            "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
+            "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 
         ;;
     *)
@@ -138,7 +138,7 @@ switch_image_service_offload() {
 clear_kernel_params() {
 
     sed -i -e 's#^\(kernel_params\) = "\(.*\)"#\1 = ""#g' \
-        "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
+        "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 }
 # Wait until the pod is not 'Ready'. Fail if it hits the timeout.
 #
@@ -200,18 +200,42 @@ kubernetes_create_cc_pod() {
 enable_agent_console() {
 
     sudo sed -i -e 's/^# *\(debug_console_enabled\).*=.*$/\1 = true/g' \
-        "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
+        "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 }
 
 enable_full_debug() {
     # Load the RUNTIME_CONFIG_PATH variable.
 
     # Toggle all the debug flags on in kata's configuration.toml to enable full logging.
-    sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' "$RUNTIME_CONFIG_PATH/configuration-qemu.toml"
+    sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 
     # Also pass the initcall debug flags via Kernel parameters.
     # add_kernel_params "agent.log=debug" "initcall_debug"
 }
+
+# Toggle between different measured rootfs verity schemes during tests.
+#
+# Parameters:
+#	$1: "none" to disable or "dm-verity" to enable measured boot.
+#
+# Environment variables:
+#	RUNTIME_CONFIG_PATH - path to kata's configuration.toml. If it is not
+#			      export then it will figure out the path via
+#			      `kata-runtime env` and export its value.
+#
+switch_measured_rootfs_verity_scheme() {
+    echo "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
+    case "$1" in
+    "dm-verity" | "none")
+        sudo sed -i -e 's/scheme=.* cc_rootfs/scheme='"$1"' cc_rootfs/g' \
+            "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
+        ;;
+    *)
+        die "Unknown option '$1'"
+        ;;
+    esac
+}
+
 # Create the test pod.
 #
 # Note: the global $sandbox_name, $pod_config should be set
@@ -379,31 +403,18 @@ cp_to_guest_img() {
     rm -rf "$rootfs_dir"
 }
 # In case the tests run behind a firewall where images needed to be fetched
-# through a proxy. 
+# through a proxy.
 # Note: With measured rootfs enabled, we can not set proxy through
 # agent config file.
 setup_http_proxy() {
-	local https_proxy="${HTTPS_PROXY:-${https_proxy:-}}"
-	if [ -n "$https_proxy" ]; then
-		echo "Enable agent https proxy"
-		add_kernel_params "agent.https_proxy=$https_proxy"
-	fi
+    local https_proxy="${HTTPS_PROXY:-${https_proxy:-}}"
+    if [ -n "$https_proxy" ]; then
+        echo "Enable agent https proxy"
+        add_kernel_params "agent.https_proxy=$https_proxy"
+    fi
 }
 generate_encrypted_image() {
-    # git clone https://github.com/containers/attestation-agent $GOPATH/src/github.com/attestation-agent
-    # cd $GOPATH/src/github.com/attestation-agent
-    # make KBC=eaa_kbc && make install
-
-    # git clone -b 2022-poc https://github.com/jialez0/verdictd $GOPATH/src/github.com/verdictd
-    # cd $GOPATH/src/github.com/verdictd
-    # make
-    # make install
-
-    # git clone https://github.com/containers/skopeo $GOPATH/src/github.com/containers/skopeo
-    # cd $GOPATH/src/github.com/containers/skopeo && make bin/skopeo
-    # apt-get install go-md2man
-    # make install
-    IMAGE="$1"
+    local IMAGE="$1"
     # Generate the key provider configuration file
     if [ ! -d /etc/containerd/ocicrypt/ ]; then
         mkdir -p /etc/containerd/ocicrypt/
@@ -450,6 +461,37 @@ EOF
     echo $VERDICTDID
     sudo kill -9 $VERDICTDID
 }
+generate_offline_encrypted_image() {
+    local img="$1"
+    if [ ! -f $TEST_COCO_PATH/../config/ocicrypt.conf ]; then
+        cat <<-EOF >$TEST_COCO_PATH/../config/ocicrypt.conf
+{
+        "key-providers": {
+                "attestation-agent": {
+                    "grpc": "127.0.0.1:50001"
+
+                }
+        }
+}
+EOF
+    fi
+    if [ ! -d $GOPATH/src/github.com/attestation-agent ]; then
+        git clone https://github.com/confidential-containers/attestation-agent.git -b v0.1.0 $GOPATH/src/github.com/attestation-agent
+
+    fi
+    offline_kbs_id=$(ps ux | grep "sample_keyprovider" | grep -v "grep" | awk '{print $2}')
+
+    cd $GOPATH/src/github.com/attestation-agent/sample_keyprovider
+    if [ "$offline_kbs_id" == "" ]; then
+        cargo run --release --features offline_fs_kbs -- --keyprovider_sock 127.0.0.1:50001 2>&1 &
+    fi
+
+    cp ${TEST_COCO_PATH}/../config/aa-offline_fs_kbc-keys.json /etc/
+    OCICRYPT_KEYPROVIDER_CONFIG=$TEST_COCO_PATH/../config/ocicrypt.conf skopeo copy --encryption-key provider:attestation-agent:/etc/aa-offline_fs_kbc-keys.json:key_id docker://${REGISTRY_NAME}/${img}:latest docker://${REGISTRY_NAME}/${img}:offline-encrypted
+    offline_kbs_id=$(ps ux | grep "sample_keyprovider" | grep -v "grep" | awk '{print $2}')
+    echo $offline_kbs_id
+    kill -9 $offline_kbs_id
+}
 setup_eaa_kbc_agent_config_in_guest() {
     local rootfs_agent_config="/etc/agent-config.toml"
 
@@ -475,37 +517,11 @@ setup_eaa_decryption_files_in_guest() {
 
     setup_eaa_kbc_agent_config_in_guest
 }
-setup_decryption_files_in_guest() {
-    # remove_kernel_param "agent.enable_signature_verification"
-    # rootfs_directory="etc/containers/"
-	# signatures_dir="$TEST_COCO_PATH/../signed"
-
-	# if [ ! -d "${signatures_dir}" ]; then
-	# 	sudo mkdir "${signatures_dir}"
-	# fi
-
-	# sudo tar -zvxf "$TEST_COCO_PATH/../signed/signatures.tar" -C "${signatures_dir}"
-
-	# cp_to_guest_img "${rootfs_directory}" "$TEST_COCO_PATH/../signed"
-    # add_kernel_params \
-	# 	"agent.container_policy_file=/etc/containers/quay_verification/quay_policy.json"
-	# rootfs_directory="etc/containers/"
-	# signatures_dir="$TEST_COCO_PATH/../tmp/quay_verification/signatures"
-    # cp_to_guest_img "${rootfs_directory}" "$TEST_COCO_PATH/../tmp/registries.d"
-	# if [ ! -d "${signatures_dir}" ]; then
-	# 	sudo mkdir "${signatures_dir}"
-	# fi
-
-	# sudo tar -zvxf "$TEST_COCO_PATH/../tmp/quay_verification/signatures.tar" -C "${signatures_dir}"
-
-	# cp_to_guest_img "${rootfs_directory}" "$TEST_COCO_PATH/../tmp/quay_verification"
-	cp_to_guest_img "etc" "$TEST_COCO_PATH/../config.toml"
-    cp_to_guest_img "etc" "$TEST_COCO_PATH/../fixtures/aa-offline_fs_kbc-resources.json"
+setup_offline_decryption_files_in_guest() {
     add_kernel_params "agent.aa_kbc_params=offline_fs_kbc::null"
-
-     curl -Lo "${HOME}/aa-offline_fs_kbc-keys.json" https://raw.githubusercontent.com/confidential-containers/documentation/main/demos/ssh-demo/aa-offline_fs_kbc-keys.json
-    cp_to_guest_img "etc" "${HOME}/aa-offline_fs_kbc-keys.json" 
-    cp_to_guest_img "etc" "/etc/containers/"
+    add_kernel_params "agent.config_file=/etc/offline-agent-config.toml"
+    cp_to_guest_img "etc" "$TEST_COCO_PATH/../config/offline-agent-config.toml"
+    cp_to_guest_img "etc" "$TEST_COCO_PATH/../config/aa-offline_fs_kbc-keys.json"
 }
 kubernetes_create_ssh_demo_pod() {
     kubectl apply -f "$1" && pod=$(kubectl get pods -o jsonpath='{.items..metadata.name}') && kubectl wait --timeout=120s --for=condition=ready pods/$pod
@@ -554,37 +570,45 @@ setup_common_signature_files_in_guest() {
 
 }
 generate_tests_trust_storage() {
-	local base_config=$1
-	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+    local base_config=$1
+    local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
 
-	IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2:$VERSION" pod_config="\$pod_config" go_path="\$GOPATH" test_coco_path="\$TEST_COCO_PATH" POD_NAME="\${POD_NAME}" pod_config_snap="\$pod_config_snap" snap_metadata_name="\$snap_metadata_name" SNAP_POD_NAME="\${SNAP_POD_NAME}" envsubst <"$base_config" >"$new_config"
+    IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2:$VERSION" pod_config="\$pod_config" go_path="\$GOPATH" test_coco_path="\$TEST_COCO_PATH" POD_NAME="\${POD_NAME}" pod_config_snap="\$pod_config_snap" snap_metadata_name="\$snap_metadata_name" SNAP_POD_NAME="\${SNAP_POD_NAME}" envsubst <"$base_config" >"$new_config"
 
-	echo "$new_config"
+    echo "$new_config"
 }
 generate_tests_signed_image() {
-	local base_config=$1
-	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+    local base_config=$1
+    local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
 
-	IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" pod_id="\$pod_id" envsubst <"$base_config" >"$new_config"
+    IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" pod_id="\$pod_id" envsubst <"$base_config" >"$new_config"
 
-	echo "$new_config"
+    echo "$new_config"
 }
 generate_tests_encrypted_image() {
-	local base_config=$1
-	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+    local base_config=$1
+    local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
 
-	IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" VERDICTDID="\$VERDICTDID" envsubst <"$base_config" >"$new_config"
+    IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" VERDICTDID="\$VERDICTDID" envsubst <"$base_config" >"$new_config"
 
-	echo "$new_config"
+    echo "$new_config"
 }
-generate_cosign_image(){
+generate_tests_offline_encrypted_image() {
+    local base_config=$1
+    local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+
+    IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" envsubst <"$base_config" >"$new_config"
+
+    echo "$new_config"
+}
+generate_cosign_image() {
     local img=$1
     # IMAGE=zcy-Z390-AORUS-MASTER.sh.intel.com/nginx:cosigned
-	local registrys=$(echo $img|cut -d "/" -f1)
-    local img_name=$(echo $img|cut -d "/" -f2)
+    local registrys=$(echo $img | cut -d "/" -f1)
+    local img_name=$(echo $img | cut -d "/" -f2)
     docker tag $img $registrys/cosigned/$img_name:cosigned
     docker push $registrys/cosigned/$img_name:cosigned
-	IMG_DIGEST=$registrys/cosigned/$img_name:cosigned@$(docker images --digests|grep "${img}"|grep cosigned|awk '{print $3}'|sed -n "1,1p")
+    IMG_DIGEST=$registrys/cosigned/$img_name:cosigned@$(docker images --digests | grep "${img}" | grep cosigned | awk '{print $3}' | sed -n "1,1p")
     /usr/bin/expect <<-EOF
 	spawn cosign sign --key $TEST_COCO_PATH/../config/cosign.key $IMG_DIGEST
     expect "Enter password for private key:"
@@ -619,8 +643,6 @@ unencrypted_signed_image_from_unprotected_registry() {
         return 1
     fi
     kubectl get pods
-    # read -p "wait a minute:" tests
-    # eval $(parse_yaml $pod_config "_")
     kubernetes_delete_cc_pod_if_exists $_metadata_name || true
 
 }
@@ -663,7 +685,6 @@ create_image_size() {
 }
 #generate .crt and .key
 generate_crt() {
-    # openssl req -newkey rsa:4096 -nodes -sha256 -keyout ${CERTS_PATH}certs/domain.key -addext "subjectAltName = ${TYPE_NAME}:${REGISTRY_NAME}" -x509 -days 365 -out ${CERTS_PATH}certs/domain.crt
     openssl req -newkey rsa:4096 -nodes -sha256 -keyout $TEST_COCO_PATH/../certs/domain.key -addext "subjectAltName = ${TYPE_NAME}:${REGISTRY_NAME}" -x509 -days 365 -out $TEST_COCO_PATH/../certs/domain.crt <<ESXU
 12
 
@@ -694,9 +715,6 @@ run_registry() {
         -e REGISTRY_HTTP_ADDR=0.0.0.0:$PORT -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
         -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key -p $PORT:$PORT registry:2
     systemctl restart docker
-    # docker run -d --restart=always --name zcy-Z390-AORUS-MASTER.sh.intel.com -v certs:/certs \
-    #     -e REGISTRY_HTTP_ADDR=0.0.0.0:443 -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
-    #     -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key -p 443:443 registry:2
 
     pull_image
     # create_image_size
@@ -705,9 +723,9 @@ run_registry() {
 pull_image() {
     VERSION=latest
     for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
-        docker pull $IMAGE:$VERSION
-        docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION
-        docker push $REGISTRY_NAME/$IMAGE:$VERSION
+        docker pull $IMAGE:$VERSION 
+        docker tag $IMAGE:$VERSION $REGISTRY_NAME:$PORT/$IMAGE:$VERSION 
+        docker push $REGISTRY_NAME/$IMAGE:$VERSION 
     done
 }
 
@@ -745,6 +763,21 @@ new_pod_config_normal() {
     IMAGE="$image" RUNTIMECLASSNAME="$runtimeclass" REGISTRTYIMAGE="$registryimage" envsubst <"$base_config" >"$new_config"
     echo "$new_config"
 }
+set_runtimeclass_config() {
+    local runtime_class=$1
+    case $runtime_class in
+    "kata-qemu")
+        export CURRENT_CONFIG_FILE="configuration-qemu.toml"
+        ;;
+    "kata-clh")
+        export CURRENT_CONFIG_FILE="configuration-clh.toml"
+        ;;
+    *)
+        export CURRENT_CONFIG_FILE="configuration-qemu.toml"
+        ;;
+    esac
+
+}
 read_config() {
     export KUBECONFIG=/etc/kubernetes/admin.conf
     export GOPATH=/root/go
@@ -752,7 +785,7 @@ read_config() {
     export RUNTIME_CONFIG_PATH="/opt/confidential-containers/share/defaults/kata-containers"
     export FIXTURES_DIR=$(jq -r '.config.podConfigPath' $TEST_COCO_PATH/../config/test_config.json)
     # export CONFIG_FILES=($(ls -l ${RUNTIME_CONFIG_PATH} | awk '{print $9}'))
-    # export CURRENT_CONFIG_FILES=${CONFIG_FILES[1]}
+    export CURRENT_CONFIG_FILE="configuration-qemu.toml"
     export RUNTIMECLASS=$(jq -r '.config.runtimeClass[]' $TEST_COCO_PATH/../config/test_config.json)
     export CPUCONFIG=$(jq -r '.config.cpuNum[]' $TEST_COCO_PATH/../config/test_config.json)
     export MEMCONFIG=$(jq -r '.config.memSize[]' $TEST_COCO_PATH/../config/test_config.json)
@@ -763,10 +796,7 @@ read_config() {
     export OPERATOR_VERSION=$(jq -r '.file.operatorVersion' $TEST_COCO_PATH/../config/test_config.json)
 
     export IMAGE_LISTS=$(jq -r .file.imageLists[] $TEST_COCO_PATH/../config/test_config.json)
-    # export IMAGE_LISTS=(busybox redis mysql ruby rust swift)
-    # export NORMAL_IMAGE_LISTS=$(jq -r .file.imageLists[] $TEST_COCO_PATH/../config/test_config.json)
     export EXAMPLE_IMAGE_LISTS=$(jq -r .file.commentsImageLists[] $TEST_COCO_PATH/../config/test_config.json)
-    # export IMAGE_LISTS=(${NORMAL_IMAGE_LISTS[@]} ${EXAMPLE_IMAGE_LISTS[@]})
     export VERSION=latest
     export TYPE_NAME=$(jq -r '.certificates.type' $TEST_COCO_PATH/../config/test_config.json)
     export REGISTRY_NAME=$(jq -r '.certificates.registry' $TEST_COCO_PATH/../config/test_config.json)
@@ -829,4 +859,15 @@ check_cc_runtime() {
         COUNT=$COUNT+1
     done
     return 0
+}
+start_http_local_registry() {
+    registry_port="${REGISTRY_PORT:-5000}"
+    # registry_name="cc-registry"
+    docker run -d -p ${registry_port}:5000 --restart=always registry:2
+    VERSION=latest
+    for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
+        docker pull $IMAGE:$VERSION 
+        docker tag $IMAGE:$VERSION localhost:5000/$IMAGE:$VERSION 
+        docker push localhost:5000/$IMAGE:$VERSION 
+    done
 }
