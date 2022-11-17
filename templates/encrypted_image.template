@@ -1,5 +1,6 @@
 @test "Test_encrypted_image $IMAGE $IMAGE_SIZE $RUNTIMECLASSNAME" {
 	set_runtimeclass_config $RUNTIMECLASSNAME
+	remove_kernel_param "agent.enable_signature_verification"
 	skip  "need to rebuild rootfs including eaa_bkc and guest kernel to test encrypted image, which is not supported in branch main of operator"
 	remove_kernel_param "agent.enable_signature_verification"
 	generate_encrypted_image $IMAGE
