@@ -117,7 +117,7 @@ run_multiple_pod_spec_and_images_config() {
 	tests_passing+="|Test uninstall operator"
 
 	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats"
+		"$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats" -F junit
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/multiple_pod_spec_and_images-config.yaml.in.*
 }
@@ -160,7 +160,7 @@ run_signed_image_config() {
 	tests_passing+="|Test uninstall operator"
 
 	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/signed_image.bats"
+		"$TEST_COCO_PATH/../tests/signed_image.bats" -F junit
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/signed_image-config.yaml.in.*
 }
@@ -227,7 +227,7 @@ run_offline_encrypted_image_config() {
 	tests_passing+="|Test uninstall operator"
 
 	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/offline_encrypted_image.bats"
+		"$TEST_COCO_PATH/../tests/offline_encrypted_image.bats" -F  tap
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/offline-encrypted-config.yaml.in.*
 }
@@ -267,8 +267,9 @@ main() {
 	echo -e "-------Install Depedencies:-------\n"
 	echo "install Kubernetes"
 	echo "install bats"
-	# git clone https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests
-	# bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh >/dev/null 2>&1
+	# git clone https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests >/dev/null
+	# bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh >/dev/null 
+	# $TEST_PATH/setup/install_bats.sh
 	echo "--------Operator Version--------"
 	OPERATOR_VERSION=$(jq -r .file.operatorVersion $TEST_PATH/config/test_config.json)
 	echo "Operator Version: $OPERATOR_VERSION"

@@ -1,6 +1,6 @@
 @test "Test_offline_encrypted_image $IMAGE $IMAGE_SIZE $RUNTIMECLASSNAME" {
-	
 	set_runtimeclass_config $RUNTIMECLASSNAME
+	remove_kernel_param "agent.enable_signature_verification"
 	generate_offline_encrypted_image $IMAGE
 	setup_offline_decryption_files_in_guest
 	pod_config="$(new_pod_config_normal $test_coco_path/../fixtures/offline-encrypted-config.yaml.in "$IMAGE" "$RUNTIMECLASSNAME" "$REGISTRTYIMAGE:offline-encrypted")"

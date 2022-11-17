@@ -71,7 +71,7 @@ install_cc() {
     # sed -i 's/latest/v0.1.0/g' $GOPATH/src/github.com/operator-0.1.0/deploy/deploy.yaml
     # kubectl apply -f $GOPATH/src/github.com/operator-${OPERATOR_VERSION}/deploy/deploy.yaml
     kubectl apply -k github.com/confidential-containers/operator/config/release?ref=v${OPERATOR_VERSION}
-    # kubectl taint nodes --all node-role.kubernetes.io/control-plane-
+    kubectl taint nodes --all node-role.kubernetes.io/control-plane-
     test_pod_for_deploy
     if [ $? -eq 1 ]; then
         echo "ERROR: operator deployment failed !"
@@ -89,14 +89,14 @@ install_cc() {
     # kubectl get runtimeclass
 }
 install_runtime() {
-    kubeadm reset -f
-    swapoff -a
-    modprobe br_netfilter
-    echo 1 >/proc/sys/net/ipv4/ip_forward
-    # rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
-    systemctl daemon-reload
-    systemctl restart containerd
-    iptables -P FORWARD ACCEPT
+    # kubeadm reset -f
+    # swapoff -a
+    # modprobe br_netfilter
+    # echo 1 >/proc/sys/net/ipv4/ip_forward
+    # # rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
+    # systemctl daemon-reload
+    # systemctl restart containerd
+    # iptables -P FORWARD ACCEPT
     kubeadm init --cri-socket /run/containerd/containerd.sock --pod-network-cidr=10.244.0.0/16 --image-repository registry.cn-hangzhou.aliyuncs.com/google_containers
     export KUBECONFIG=/etc/kubernetes/admin.conf
     kubectl taint nodes --all node-role.kubernetes.io/master-

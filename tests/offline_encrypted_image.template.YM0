@@ -1,9 +1,0 @@
-@test "Test_offline_encrypted_image ubuntu 77.8MB kata-qemu" {
-	
-	set_runtimeclass_config kata-qemu
-	generate_offline_encrypted_image ubuntu
-	setup_offline_decryption_files_in_guest
-	pod_config="$(new_pod_config_normal ${TEST_COCO_PATH}/../fixtures/offline-encrypted-config.yaml.in "ubuntu" "kata-qemu" "zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:offline-encrypted")"
-	pull_encrypted_image_inside_guest_with_decryption_key $pod_config
-	rm $pod_config
-}
