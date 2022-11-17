@@ -122,7 +122,7 @@ Test_signed_image() {
 	done
 }
 Test_encrypted_image() {
-
+	
 	generate_encrypted_image
 	VERDICTDID=$(ps ux | grep "verdictd" | grep -v "grep" | awk '{print $2}')
 	if [ "$VERDICTDID" == "" ]; then
@@ -216,9 +216,9 @@ tests() {
 main() {
 	setup
 	read_config
-	run_registry
-
-	$TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
+	# run_registry
+	remove_kernel_param "agent.enable_signature_verification"
+	# $TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
 	# Test_install_operator
 	# start_local_registry
 	# install_runtime
@@ -226,7 +226,7 @@ main() {
 	# switch_measured_rootfs_verity_scheme none
 	# Test_measured_boot_image
 	# Test_cosign_image
-
+	# pull_image
 	Test_encrypted_image_offline
 	# Test_uninstall_operator
 	# teardown

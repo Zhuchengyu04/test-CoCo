@@ -1,6 +1,7 @@
 @test "Test_encrypted_image $IMAGE $IMAGE_SIZE $RUNTIMECLASSNAME" {
 	set_runtimeclass_config $RUNTIMECLASSNAME
 	skip  "need to rebuild rootfs including eaa_bkc and guest kernel to test encrypted image, which is not supported in branch main of operator"
+	remove_kernel_param "agent.enable_signature_verification"
 	generate_encrypted_image $IMAGE
 	VERDICTDID=$(ps ux | grep "verdictd" | grep -v "grep" | awk '{print $2}')
 	if [ "$VERDICTDID" == "" ]; then

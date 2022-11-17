@@ -452,7 +452,7 @@ EOF
     export OCICRYPT_KEYPROVIDER_CONFIG=/etc/containerd/ocicrypt/ocicrypt_keyprovider.conf
 
     skopeo --insecure-policy copy docker://${REGISTRY_NAME}/${IMAGE}:latest oci:$STORAGE_FILE_D/${IMAGE}
-    skopeo copy --insecure-policy --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 oci:$STORAGE_FILE_D/${IMAGE} docker://${REGISTRY_NAME}/${IMAGE}:encrypted
+    skopeo copy --insecure-policy --remove-signatures --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 oci:$STORAGE_FILE_D/${IMAGE} docker://${REGISTRY_NAME}/${IMAGE}:encrypted
     rm -r $STORAGE_FILE_D/${IMAGE}
 
     # generate encrypted image
@@ -476,7 +476,7 @@ generate_offline_encrypted_image() {
 EOF
     fi
     if [ ! -d $GOPATH/src/github.com/attestation-agent ]; then
-        git clone https://github.com/confidential-containers/attestation-agent.git -b v0.1.0 $GOPATH/src/github.com/attestation-agent
+        git clone https://github.com/confidential-containers/attestation-agent.git  $GOPATH/src/github.com/attestation-agent
 
     fi
     offline_kbs_id=$(ps ux | grep "sample_keyprovider" | grep -v "grep" | awk '{print $2}')
@@ -487,7 +487,7 @@ EOF
     fi
 
     cp ${TEST_COCO_PATH}/../config/aa-offline_fs_kbc-keys.json /etc/
-    OCICRYPT_KEYPROVIDER_CONFIG=$TEST_COCO_PATH/../config/ocicrypt.conf skopeo copy --encryption-key provider:attestation-agent:/etc/aa-offline_fs_kbc-keys.json:key_id docker://${REGISTRY_NAME}/${img}:latest docker://${REGISTRY_NAME}/${img}:offline-encrypted
+    OCICRYPT_KEYPROVIDER_CONFIG=$TEST_COCO_PATH/../config/ocicrypt.conf skopeo copy --remove-signatures --encryption-key provider:attestation-agent:/etc/aa-offline_fs_kbc-keys.json:key_id docker://${REGISTRY_NAME}/${img}:latest docker://${REGISTRY_NAME}/${img}:offline-encrypted
     offline_kbs_id=$(ps ux | grep "sample_keyprovider" | grep -v "grep" | awk '{print $2}')
     echo $offline_kbs_id
     kill -9 $offline_kbs_id
@@ -724,7 +724,7 @@ pull_image() {
     VERSION=latest
     for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
         docker pull $IMAGE:$VERSION 
-        docker tag $IMAGE:$VERSION $REGISTRY_NAME:$PORT/$IMAGE:$VERSION 
+        docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION 
         docker push $REGISTRY_NAME/$IMAGE:$VERSION 
     done
 }

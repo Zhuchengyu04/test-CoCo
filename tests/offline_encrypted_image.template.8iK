@@ -1,9 +1,0 @@
-@test "Test_offline_encrypted_image nginx 142MB kata-clh" {
-	
-	set_runtimeclass_config kata-clh
-	generate_offline_encrypted_image nginx
-	setup_offline_decryption_files_in_guest
-	pod_config="$(new_pod_config_normal ${TEST_COCO_PATH}/../fixtures/offline-encrypted-config.yaml.in "nginx" "kata-clh" "zcy-Z390-AORUS-MASTER.sh.intel.com/nginx:offline-encrypted")"
-	pull_encrypted_image_inside_guest_with_decryption_key $pod_config
-	rm $pod_config
-}
