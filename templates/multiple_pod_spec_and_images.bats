@@ -12,6 +12,7 @@ setup() {
 
 
 @test "Test install operator" {
+	skip
 	install_runtime
 	echo "Prepare containerd for Confidential Container"
 

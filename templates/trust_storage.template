@@ -1,6 +1,7 @@
 
 @test "Test_trust_storage $IMAGE $IMAGE_SIZE $RUNTIMECLASSNAME " {
 	set_runtimeclass_config $RUNTIMECLASSNAME
+	skip
 	pod_config="$(new_pod_config_normal $test_coco_path/../fixtures/sts-lvm.yaml.in "$IMAGE" "$RUNTIMECLASSNAME" "$REGISTRTYIMAGE")"
 
 	create_test_pod $pod_config

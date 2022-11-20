@@ -476,12 +476,12 @@ generate_offline_encrypted_image() {
 EOF
     fi
     if [ ! -d $GOPATH/src/github.com/attestation-agent ]; then
-        git clone https://github.com/confidential-containers/attestation-agent.git  $GOPATH/src/github.com/attestation-agent
+        git clone https://github.com/confidential-containers/attestation-agent.git $GOPATH/src/github.com/attestation-agent
 
     fi
     offline_kbs_id=$(ps ux | grep "sample_keyprovider" | grep -v "grep" | awk '{print $2}')
 
-    cd $GOPATH/src/github.com/attestation-agent/sample_keyprovider
+    cd $GOPATH/src/github.com/attestation-agent/sample_keyprovider/src/enc_mods/offline_fs_kbs
     if [ "$offline_kbs_id" == "" ]; then
         cargo run --release --features offline_fs_kbs -- --keyprovider_sock 127.0.0.1:50001 2>&1 &
     fi
@@ -496,7 +496,7 @@ setup_eaa_kbc_agent_config_in_guest() {
     local rootfs_agent_config="/etc/agent-config.toml"
 
     # clone_katacontainers_repo
-    sudo -E AA_KBC_PARAMS='eaa_kbc::10.239.159.53:50000' envsubst <$TEST_COCO_PATH/../config/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
+    sudo -E AA_KBC_PARAMS=$1 envsubst <$TEST_COCO_PATH/../config/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
 
     # sudo -E AA_KBC_PARAMS="offline_fs_kbc::null" HTTPS_PROXY="${HTTPS_PROXY:-${https_proxy:-}}" envsubst < ${katacontainers_repo_dir}/docs/how-to/data/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
     # sudo -E AA_KBC_PARAMS='offline_fs_kbc::null' envsubst < $TEST_COCO_PATH/../config/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
@@ -515,13 +515,21 @@ setup_eaa_kbc_agent_config_in_guest() {
 }
 setup_eaa_decryption_files_in_guest() {
 
-    setup_eaa_kbc_agent_config_in_guest
+    setup_eaa_kbc_agent_config_in_guest "eaa_kbc::10.239.159.53:50000"
 }
 setup_offline_decryption_files_in_guest() {
     add_kernel_params "agent.aa_kbc_params=offline_fs_kbc::null"
     add_kernel_params "agent.config_file=/etc/offline-agent-config.toml"
     cp_to_guest_img "etc" "$TEST_COCO_PATH/../config/offline-agent-config.toml"
     cp_to_guest_img "etc" "$TEST_COCO_PATH/../config/aa-offline_fs_kbc-keys.json"
+    local offline_base_config="$TEST_COCO_PATH/../config/aa-offline_fs_kbc-resources.json.in"
+    local offline_new_config="$TEST_COCO_PATH/../tests/aa-offline_fs_kbc-resources.json"
+    local p_b="$(cat $TEST_COCO_PATH/../config/policy.json | base64)"
+    local policy_base64=$(echo $p_b | tr -d '\n' | tr -d ' ')
+    local c_k_b="$(cat $TEST_COCO_PATH/../certs/cosign.pub | base64)"
+    local cosign_key_base64=$(echo $c_k_b | tr -d '\n' | tr -d ' ')
+    POLICY_BASE64="$policy_base64" COSIGN_KEY_BASE64="$cosign_key_base64" envsubst <"$offline_base_config" >"$offline_new_config"
+    cp_to_guest_img "etc" "$TEST_COCO_PATH/../tests/aa-offline_fs_kbc-resources.json"
 }
 kubernetes_create_ssh_demo_pod() {
     kubectl apply -f "$1" && pod=$(kubectl get pods -o jsonpath='{.items..metadata.name}') && kubectl wait --timeout=120s --for=condition=ready pods/$pod
@@ -723,9 +731,9 @@ run_registry() {
 pull_image() {
     VERSION=latest
     for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
-        docker pull $IMAGE:$VERSION 
-        docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION 
-        docker push $REGISTRY_NAME/$IMAGE:$VERSION 
+        docker pull $IMAGE:$VERSION
+        docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION
+        docker push $REGISTRY_NAME/$IMAGE:$VERSION
     done
 }
 
@@ -807,6 +815,8 @@ read_config() {
     export REGISTRY_IP=$(jq -r '.certificates.ip' $TEST_COCO_PATH/../config/test_config.json)
     export GPG_EMAIL=$(jq -r '.certificates.gpgEmail' $TEST_COCO_PATH/../config/test_config.json)
 
+    export REPORT_FILE_PATH="$TEST_COCO_PATH/../report/"
+
     if [ ! -d $katacontainers_repo_dir ]; then
         git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
     fi
@@ -866,8 +876,8 @@ start_http_local_registry() {
     docker run -d -p ${registry_port}:5000 --restart=always registry:2
     VERSION=latest
     for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
-        docker pull $IMAGE:$VERSION 
-        docker tag $IMAGE:$VERSION localhost:5000/$IMAGE:$VERSION 
-        docker push localhost:5000/$IMAGE:$VERSION 
+        docker pull $IMAGE:$VERSION
+        docker tag $IMAGE:$VERSION localhost:5000/$IMAGE:$VERSION
+        docker push localhost:5000/$IMAGE:$VERSION
     done
 }

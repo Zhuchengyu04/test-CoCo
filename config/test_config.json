@@ -2,10 +2,11 @@
 	"config": {
 		"podConfigPath": "fixtures",
 		"runtimeClass": [
-			"kata-qemu-tdx",
-			"kata-clh-tdx"
+			"kata-qemu",
+			"kata-clh"
 		],
 		"cpuNum": [
+			"25",
 			"50",
 			"100"
 		],
