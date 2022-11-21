@@ -8,6 +8,7 @@ tests_config=""
 tests_flag=""
 source $SCRIPT_PATH/run/lib.sh
 source $SCRIPT_PATH/run/cc_deploy.sh
+source $SCRIPT_PATH/setup/install_encrypt_tools.sh
 
 usage() {
 	exit_code="$1"
@@ -38,21 +39,31 @@ parse_args() {
 		case $opt in
 
 		u)
+			run_operator_install
 			run_multiple_pod_spec_and_images_config
+			run_operator_uninstall
 			;;
 		e)
+			run_operator_install
 			run_encrypted_image_config
+			run_operator_uninstall
 			;;
 		s)
+			run_operator_install
 			run_signed_image_config
+			run_operator_uninstall
 			;;
 		t)
+			run_operator_install
 			run_trust_storage_config
+			run_operator_uninstall
 			;;
 		n) ;;
 
 		b)
+			run_operator_install
 			run_measured_boot_image_config
+			run_operator_uninstall
 			;;
 
 		m) ;;
@@ -63,14 +74,19 @@ parse_args() {
 
 		p) ;;
 		f)
+			run_operator_install
 			run_offline_encrypted_image_config
+			run_operator_uninstall
 			;;
 		c)
+			run_operator_install
 			run_cosigned_image_config
+			run_operator_uninstall
 			;;
 		d) ;;
 
 		a)
+			run_operator_install
 			run_multiple_pod_spec_and_images_config
 			run_encrypted_image_config
 			run_offline_encrypted_image_config
@@ -78,6 +94,7 @@ parse_args() {
 			run_cosigned_image_config
 			run_trust_storage_config
 			run_measured_boot_image_config
+			run_operator_uninstall
 			;;
 		h) usage 0 ;;
 		*)
@@ -87,7 +104,6 @@ parse_args() {
 		esac
 	done
 	echo $tests_config
-	# echo $tests_passing
 }
 generate_tests() {
 	local base_config="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.template"
@@ -97,31 +113,35 @@ generate_tests() {
 
 	echo "$new_config"
 }
-
-run_multiple_pod_spec_and_images_config() {
-	local pod_configs="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.bats"
-	local new_pod_configs="$TEST_COCO_PATH/../tests/$(basename ${pod_configs})"
-	local str="Test_multiple_pod_spec_and_images"
-	echo $str
+run_operator_install() {
 	tests_passing="Test install operator"
-	cp $pod_configs $new_pod_configs
+	bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../templates/operator_install.bats" -F junit
+}
+run_operator_uninstall() {
+	tests_passing="Test uninstall operator"
+	bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../templates/operator_uninstall.bats" -F junit
+}
+run_multiple_pod_spec_and_images_config() {
+	local new_pod_configs="$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats"
+	local str="Test_multiple_pod_spec_and_images"
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		docker pull $image
 		image_size=$(docker image ls | grep $image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
 			for cpunums in ${CPUCONFIG[@]}; do
 				for memsize in ${MEMCONFIG[@]}; do
-					cat "$(generate_tests $image $image_size $runtimeclass $cpunums $memsize)" | tee -a $new_pod_configs >/dev/null 
+					cat "$(generate_tests $image $image_size $runtimeclass $cpunums $memsize)" | tee -a $new_pod_configs >/dev/null
 					tests_passing+="|${str} $image $image_size $runtimeclass ${cpunums} ${memsize}GB"
 				done
 			done
 		done
 	done
-	cat "$TEST_COCO_PATH/../templates/operator.bats" | tee -a $new_pod_configs >/dev/null 
-	tests_passing+="|Test uninstall operator"
+	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 
 	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats" -F junit 
+		"$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats" -F junit
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/multiple_pod_spec_and_images-config.yaml.in.*
 }
@@ -129,137 +149,109 @@ run_trust_storage_config() {
 	local pod_configs="$TEST_COCO_PATH/../templates/trust_storage.bats"
 	local new_pod_configs="$TEST_COCO_PATH/../tests/$(basename ${pod_configs})"
 	local str="Test_trust_storage"
-	echo $str
-	tests_passing="Test install operator"
+	tests_passing="Test install open-local"
 	cp $pod_configs $new_pod_configs
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		docker pull $image
 		image_size=$(docker image ls | grep $image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
-			cat "$(generate_tests_trust_storage "$TEST_COCO_PATH/../templates/trust_storage.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null 
+			cat "$(generate_tests_trust_storage "$TEST_COCO_PATH/../templates/trust_storage.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
 			tests_passing+="|${str} $image $image_size $runtimeclass "
 
 		done
 	done
-	cat "$TEST_COCO_PATH/../templates/operator_trust_storage.bats" | tee -a $new_pod_configs >/dev/null 
-	tests_passing+="|Test uninstall operator"
+	cat "$TEST_COCO_PATH/../templates/operator_trust_storage.bats" | tee -a $new_pod_configs >/dev/null
+	tests_passing+="|Test uninstall open-local"
 	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/trust_storage.bats"  -F junit 
+		"$TEST_COCO_PATH/../tests/trust_storage.bats" -F junit
 	rm -rf $TEST_COCO_PATH/../tests/*
 }
 run_signed_image_config() {
-	local pod_configs="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.bats"
 	local new_pod_configs="$TEST_COCO_PATH/../tests/signed_image.bats"
 	local str="Test_signed_image"
-	echo $str
-	tests_passing="Test install operator"
-	cp $pod_configs $new_pod_configs
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		docker pull $image
 		image_size=$(docker image ls | grep $image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
-			cat "$(generate_tests_signed_image "$TEST_COCO_PATH/../templates/signed_image.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null 
+			cat "$(generate_tests_signed_image "$TEST_COCO_PATH/../templates/signed_image.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
 			tests_passing+="|${str} $image $image_size $runtimeclass"
 		done
 	done
-	cat "$TEST_COCO_PATH/../templates/operator.bats" | tee -a $new_pod_configs >/dev/null 
-	tests_passing+="|Test uninstall operator"
-
+	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/signed_image.bats" -F junit 
+		"$TEST_COCO_PATH/../tests/signed_image.bats" -F junit
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/signed_image-config.yaml.in.*
 }
 run_cosigned_image_config() {
-	local pod_configs="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.bats"
 	local new_pod_configs="$TEST_COCO_PATH/../tests/cosigned_image.bats"
 	local str="Test_cosigned_image"
-	echo $str
-	tests_passing="Test install operator"
-	cp $pod_configs $new_pod_configs
+	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		docker pull $image
 		image_size=$(docker image ls | grep $image | head -1 | awk '{print $7}')
 
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
-			cat "$(generate_tests_cosign_image "$TEST_COCO_PATH/../templates/cosigned_image.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null 
+			cat "$(generate_tests_cosign_image "$TEST_COCO_PATH/../templates/cosigned_image.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
 			tests_passing+="|${str} $image $image_size $runtimeclass"
 		done
 	done
-	cat "$TEST_COCO_PATH/../templates/operator.bats" | tee -a $new_pod_configs >/dev/null 
-	tests_passing+="|Test uninstall operator"
 
 	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/cosigned_image.bats" -F junit 
+		"$TEST_COCO_PATH/../tests/cosigned_image.bats" -F junit
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/cosign-config.yaml.in.*
 }
 run_encrypted_image_config() {
-	local pod_configs="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.bats"
 	local new_pod_configs="$TEST_COCO_PATH/../tests/encrypted_image.bats"
 	local str="Test_encrypted_image"
-	echo $str
-	tests_passing="Test install operator"
-	cp $pod_configs $new_pod_configs
+	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		docker pull $image
 		image_size=$(docker image ls | grep $image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
-			cat "$(generate_tests_encrypted_image "$TEST_COCO_PATH/../templates/encrypted_image.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null 
+			cat "$(generate_tests_encrypted_image "$TEST_COCO_PATH/../templates/encrypted_image.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
 			tests_passing+="|${str} $image $image_size $runtimeclass"
 		done
 	done
-	cat "$TEST_COCO_PATH/../templates/operator.bats" | tee -a $new_pod_configs >/dev/null 
-	tests_passing+="|Test uninstall operator"
 
 	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/encrypted_image.bats" -F junit 
+		"$TEST_COCO_PATH/../tests/encrypted_image.bats" -F junit
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/encrypted_image-config.yaml.in.*
 }
 run_offline_encrypted_image_config() {
-	local pod_configs="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.bats"
 	local new_pod_configs="$TEST_COCO_PATH/../tests/offline_encrypted_image.bats"
 	local str="Test_offline_encrypted_image"
-	echo $str
-	tests_passing="Test install operator"
-	cp $pod_configs $new_pod_configs
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		docker pull $image
 		image_size=$(docker image ls | grep $image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
-			cat "$(generate_tests_offline_encrypted_image "$TEST_COCO_PATH/../templates/offline_encrypted_image.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null 
+			cat "$(generate_tests_offline_encrypted_image "$TEST_COCO_PATH/../templates/offline_encrypted_image.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
 			tests_passing+="|${str} $image $image_size $runtimeclass"
 		done
 	done
-	cat "$TEST_COCO_PATH/../templates/operator.bats" | tee -a $new_pod_configs >/dev/null 
-	tests_passing+="|Test uninstall operator"
+	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 
 	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/offline_encrypted_image.bats" -F junit 
+		"$TEST_COCO_PATH/../tests/offline_encrypted_image.bats" -F junit
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/offline-encrypted-config.yaml.in.*
 }
 run_measured_boot_image_config() {
-	local pod_configs="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.bats"
 	local new_pod_configs="$TEST_COCO_PATH/../tests/measured_boot.bats"
 	local str="Test_measured_boot"
-	echo $str
-	tests_passing="Test install operator"
-	cp $pod_configs $new_pod_configs
+	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		docker pull $image
 		image_size=$(docker image ls | grep $image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
-			cat "$(generate_tests_offline_encrypted_image "$TEST_COCO_PATH/../templates/measured_boot.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null 
+			cat "$(generate_tests_offline_encrypted_image "$TEST_COCO_PATH/../templates/measured_boot.template" $image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
 			tests_passing+="|${str} $image $image_size $runtimeclass"
 		done
 	done
-	cat "$TEST_COCO_PATH/../templates/operator.bats" | tee -a $new_pod_configs >/dev/null 
-	tests_passing+="|Test uninstall operator"
-
 	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/measured_boot.bats" -F junit 
+		"$TEST_COCO_PATH/../tests/measured_boot.bats" -F junit
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/measured-boot-config.yaml.in.*
 }
@@ -268,6 +260,21 @@ print_image() {
 	for IMAGE in "${IMAGES[@]}"; do
 		echo "    $IMAGE $(docker image ls | grep $IMAGE | head -1 | awk '{print $7}')"
 	done
+}
+setup_env() {
+	echo "install Kubernetes"
+	git clone https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests >/dev/null
+	bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh >/dev/null
+	echo "install bats"
+	$SCRIPT_PATH/setup/install_bats.sh
+	echo "install skopeo"
+	install_skopeo
+	echo "install attestation-agent"
+	install_attestation-agent
+	echo "install verdictd"
+	install_verdictd
+	echo "install cosign"
+	install_cosign
 }
 main() {
 	$SCRIPT_PATH/serverinfo/serverinfo-stdout.sh
@@ -297,33 +304,26 @@ main() {
 	echo -e "Common Cloud Native projects: TODO"
 	echo -e "\n"
 	echo -e "-------Install Depedencies:-------\n"
-	echo "install Kubernetes"
-	echo "install bats"
-	# git clone https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests >/dev/null
-	# bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh >/dev/null
-	# $SCRIPT_PATH/setup/install_bats.sh
+	# setup_env
 	echo "--------Operator Version--------"
 	OPERATOR_VERSION=$(jq -r .file.operatorVersion $SCRIPT_PATH/config/test_config.json)
 	echo "Operator Version: $OPERATOR_VERSION"
-	# install_runtime  >/dev/null 
+	# install_runtime  >/dev/null 2>&1
 	# local kernel_version="$(/opt/confidential-containers/bin/kata-runtime kata-env --json | jq -r .Kernel.Path| cut -d '/' -f6)"
 	# echo "Kernel: $kernel_version"
 	# local runtime_version=$(/opt/confidential-containers/bin/kata-runtime kata-env --json | jq -r .Runtime.Version | grep Semver | cut -d'"' -f4)
 	# echo "Runtime: $runtime_version"
 	# local hypervisor_version=$(/opt/confidential-containers/bin/kata-runtime kata-env --json | jq -r .Hypervisor.Version| sed -n "1,1p")
 	# echo "Hypervisor: $hypervisor_version"
-	# reset_runtime  >/dev/null 
+	# reset_runtime  >/dev/null 2>&1
 	echo -e "\n-------Test Result:-------"
 
-	# $SCRIPT_PATH/setup/setup.sh
 	if [ -f /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf ]; then
 		rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
 	fi
 	read_config
-	# cat /dev/null >$REPORT_FILE_PATH
 	parse_args $@
 
-	# bash $SCRIPT_PATH/run/progress.sh
 }
 
 main "$@"

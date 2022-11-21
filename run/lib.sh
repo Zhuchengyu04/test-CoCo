@@ -623,6 +623,8 @@ generate_cosign_image() {
     send "intel\r"
     expect eof
 EOF
+cp /usr/local/bin/cosign-linux-amd64 /usr/local/bin/cosign
+
 }
 generate_tests_cosign_image() {
     local base_config=$1
@@ -731,9 +733,9 @@ run_registry() {
 pull_image() {
     VERSION=latest
     for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
-        docker pull $IMAGE:$VERSION
-        docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION
-        docker push $REGISTRY_NAME/$IMAGE:$VERSION
+        docker pull $IMAGE:$VERSION > /dev/null 2>&1
+        docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION > /dev/null 2>&1
+        docker push $REGISTRY_NAME/$IMAGE:$VERSION > /dev/null 2>&1
     done
 }
 

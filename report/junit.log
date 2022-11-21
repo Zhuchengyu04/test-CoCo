@@ -1,0 +1,233 @@
+Ubuntu 20.04.5 LTS \n \l
+HostName: zcy-Z390-AORUS-MASTER
+Kernel: 5.15.0-53-generic
+	Product Name: Z390 AORUS MASTER
+	Serial Number: WO155815L02S001
+
+--------BIOS:-------
+Vendor: American Megatrends Inc.
+Version: F11c
+Release Date: 12/18/2019
+Runtime Size: 64 kB
+ROM Size: 16 MB
+BIOS Revision: 5.13
+
+--------CPU:-------
+CPU op-mode(s):                  32-bit, 64-bit
+CPU(s):                          8
+On-line CPU(s) list:             0-7
+CPU family:                      6
+Model name:                      Intel(R) Core(TM) i7-9700 CPU @ 3.00GHz
+CPU MHz:                         3000.000
+CPU max MHz:                     4700.0000
+CPU min MHz:                     800.0000
+
+------Memory:------
+Physical Memory Array
+Location: System Board Or Motherboard
+Use: System Memory
+Error Correction Type: None
+Maximum Capacity: 64 GB
+Error Information Handle: Not Provided
+Number Of Devices: 4
+
+Size: 16384 MB		Speed: 2666 MT/s		
+Size: 16384 MB		Speed: 2666 MT/s		
+Size: 16384 MB		Speed: 2666 MT/s		
+Size: 16384 MB		Speed: 2666 MT/s		
+
+-------Disk:-------
+  *-namespace
+       description: NVMe namespace
+       physical id: 1
+       logical name: /dev/nvme0n1
+       size: 953GiB (1024GB)
+       capabilities: partitioned partitioned:dos
+       configuration: logicalsectorsize=512 sectorsize=512 signature=d6ce0081
+  *-disk
+       description: ATA Disk
+       product: CT1000MX500SSD1
+       physical id: 0.0.0
+       logical name: /dev/sda
+       version: 032
+       size: 931GiB (1TB)
+       capabilities: gpt-1.00 partitioned partitioned:gpt
+       configuration: ansiversion=5 guid=9ff0a851-5b2b-42a6-9d6c-8107e045fb0b logicalsectorsize=512 sectorsize=4096
+
+
+
+
+--------Functions to be tested with testing images--------
+multiple pod spec and images: 
+    ubuntu 77.8MB
+    nginx 142MB
+trust storage images: 
+    ubuntu 77.8MB
+    nginx 142MB
+signed images: 
+    ubuntu 77.8MB
+    nginx 142MB
+encrypted images: 
+    ubuntu 77.8MB
+    nginx 142MB
+offline-encrypted images: 
+    ubuntu 77.8MB
+    nginx 142MB
+cosigned images: 
+    ubuntu 77.8MB
+    nginx 142MB
+Attestation: TODO
+Measured boot: TODO
+Multiple registries: TODO
+Image sharing: TODO
+OnDemand image pulling: TODO
+TD Preserving: TODO
+Common Cloud Native projects: TODO
+
+
+-------Install Depedencies:-------
+
+install Kubernetes
+install bats
+--------Operator Version--------
+Operator Version: 0.2.0
+
+-------Test Result:-------
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="87.807">
+<testsuite name="operator_install.bats" tests="1" failures="0" errors="0" skipped="0" time="87.807" timestamp="2022-11-21T00:13:08" hostname="zcy-Z390-AORUS-MASTER">
+    <testcase classname="operator_install.bats" name="Test install operator" time="87.807" />
+
+</testsuite>
+</testsuites>
+Test_multiple_pod_spec_and_images
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="172.789">
+<testsuite name="multiple_pod_spec_and_images.bats" tests="24" failures="0" errors="0" skipped="0" time="172.789" timestamp="2022-11-21T00:16:17" hostname="zcy-Z390-AORUS-MASTER">
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 25 2GB" time="7.584" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 25 4GB" time="6.685" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 50 2GB" time="6.656" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 50 4GB" time="6.668" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 100 2GB" time="6.677" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-qemu 100 4GB" time="6.657" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 25 2GB" time="6.667" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 25 4GB" time="6.665" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 50 2GB" time="6.671" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 50 4GB" time="6.668" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 100 2GB" time="6.658" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images ubuntu 77.8MB kata-clh 100 4GB" time="6.696" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 25 2GB" time="7.602" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 25 4GB" time="7.565" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 50 2GB" time="7.676" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 50 4GB" time="7.673" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 100 2GB" time="7.672" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-qemu 100 4GB" time="7.669" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-clh 25 2GB" time="7.663" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-clh 25 4GB" time="7.658" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-clh 50 2GB" time="7.658" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-clh 50 4GB" time="7.669" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-clh 100 2GB" time="7.653" />
+    <testcase classname="multiple_pod_spec_and_images.bats" name="Test_multiple_pod_spec_and_images nginx 142MB kata-clh 100 4GB" time="7.679" />
+
+</testsuite>
+</testsuites>
+Test_encrypted_image
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="0">
+<testsuite name="encrypted_image.bats" tests="4" failures="0" errors="0" skipped="4" time="0" timestamp="2022-11-21T00:16:25" hostname="zcy-Z390-AORUS-MASTER">
+    <testcase classname="encrypted_image.bats" name="Test_encrypted_image ubuntu 77.8MB kata-qemu" time="0">
+        <skipped>need to rebuild rootfs including eaa_bkc and guest kernel to test encrypted image, which is not supported in branch main of operator</skipped>
+    </testcase>
+    <testcase classname="encrypted_image.bats" name="Test_encrypted_image ubuntu 77.8MB kata-clh" time="0">
+        <skipped>need to rebuild rootfs including eaa_bkc and guest kernel to test encrypted image, which is not supported in branch main of operator</skipped>
+    </testcase>
+    <testcase classname="encrypted_image.bats" name="Test_encrypted_image nginx 142MB kata-qemu" time="0">
+        <skipped>need to rebuild rootfs including eaa_bkc and guest kernel to test encrypted image, which is not supported in branch main of operator</skipped>
+    </testcase>
+    <testcase classname="encrypted_image.bats" name="Test_encrypted_image nginx 142MB kata-clh" time="0">
+        <skipped>need to rebuild rootfs including eaa_bkc and guest kernel to test encrypted image, which is not supported in branch main of operator</skipped>
+    </testcase>
+
+</testsuite>
+</testsuites>
+Test_offline_encrypted_image
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="66.002">
+<testsuite name="offline_encrypted_image.bats" tests="4" failures="0" errors="0" skipped="0" time="66.002" timestamp="2022-11-21T00:17:39" hostname="zcy-Z390-AORUS-MASTER">
+    <testcase classname="offline_encrypted_image.bats" name="Test_offline_encrypted_image ubuntu 77.8MB kata-qemu" time="13.945" />
+    <testcase classname="offline_encrypted_image.bats" name="Test_offline_encrypted_image ubuntu 77.8MB kata-clh" time="13.622" />
+    <testcase classname="offline_encrypted_image.bats" name="Test_offline_encrypted_image nginx 142MB kata-qemu" time="19.654" />
+    <testcase classname="offline_encrypted_image.bats" name="Test_offline_encrypted_image nginx 142MB kata-clh" time="18.781" />
+
+</testsuite>
+</testsuites>
+Test_signed_image
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="34.862">
+<testsuite name="signed_image.bats" tests="4" failures="0" errors="0" skipped="0" time="34.862" timestamp="2022-11-21T00:18:22" hostname="zcy-Z390-AORUS-MASTER">
+    <testcase classname="signed_image.bats" name="Test_signed_image ubuntu 77.8MB kata-qemu" time="8.837" />
+    <testcase classname="signed_image.bats" name="Test_signed_image ubuntu 77.8MB kata-clh" time="8.664" />
+    <testcase classname="signed_image.bats" name="Test_signed_image nginx 142MB kata-qemu" time="8.665" />
+    <testcase classname="signed_image.bats" name="Test_signed_image nginx 142MB kata-clh" time="8.696" />
+
+</testsuite>
+</testsuites>
+Test_cosigned_image
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="33.979">
+<testsuite name="cosigned_image.bats" tests="4" failures="0" errors="0" skipped="0" time="33.979" timestamp="2022-11-21T00:19:05" hostname="zcy-Z390-AORUS-MASTER">
+    <testcase classname="cosigned_image.bats" name="Test_cosigned_image ubuntu 77.8MB kata-qemu" time="7.962" />
+    <testcase classname="cosigned_image.bats" name="Test_cosigned_image ubuntu 77.8MB kata-clh" time="7.671" />
+    <testcase classname="cosigned_image.bats" name="Test_cosigned_image nginx 142MB kata-qemu" time="9.655" />
+    <testcase classname="cosigned_image.bats" name="Test_cosigned_image nginx 142MB kata-clh" time="8.691" />
+
+</testsuite>
+</testsuites>
+Test_trust_storage
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="9.330">
+<testsuite name="trust_storage.bats" tests="6" failures="0" errors="0" skipped="4" time="9.330" timestamp="2022-11-21T00:19:21" hostname="zcy-Z390-AORUS-MASTER">
+    <testcase classname="trust_storage.bats" name="Test install open-local" time="8.970" />
+    <testcase classname="trust_storage.bats" name="Test_trust_storage ubuntu 77.8MB kata-qemu " time="0">
+        <skipped></skipped>
+    </testcase>
+    <testcase classname="trust_storage.bats" name="Test_trust_storage ubuntu 77.8MB kata-clh " time="0">
+        <skipped></skipped>
+    </testcase>
+    <testcase classname="trust_storage.bats" name="Test_trust_storage nginx 142MB kata-qemu " time="0">
+        <skipped></skipped>
+    </testcase>
+    <testcase classname="trust_storage.bats" name="Test_trust_storage nginx 142MB kata-clh " time="0">
+        <skipped></skipped>
+    </testcase>
+    <testcase classname="trust_storage.bats" name="Test uninstall open-local" time="0.360" />
+
+</testsuite>
+</testsuites>
+Test_measured_boot
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="0">
+<testsuite name="measured_boot.bats" tests="4" failures="0" errors="0" skipped="4" time="0" timestamp="2022-11-21T00:19:29" hostname="zcy-Z390-AORUS-MASTER">
+    <testcase classname="measured_boot.bats" name="Test_measured_boot ubuntu 77.8MB kata-qemu" time="0">
+        <skipped></skipped>
+    </testcase>
+    <testcase classname="measured_boot.bats" name="Test_measured_boot ubuntu 77.8MB kata-clh" time="0">
+        <skipped></skipped>
+    </testcase>
+    <testcase classname="measured_boot.bats" name="Test_measured_boot nginx 142MB kata-qemu" time="0">
+        <skipped></skipped>
+    </testcase>
+    <testcase classname="measured_boot.bats" name="Test_measured_boot nginx 142MB kata-clh" time="0">
+        <skipped></skipped>
+    </testcase>
+
+</testsuite>
+</testsuites>
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites time="61.789">
+<testsuite name="operator_uninstall.bats" tests="1" failures="0" errors="0" skipped="0" time="61.789" timestamp="2022-11-21T00:20:31" hostname="zcy-Z390-AORUS-MASTER">
+    <testcase classname="operator_uninstall.bats" name="Test uninstall operator" time="61.789" />
+
+</testsuite>
+</testsuites>
+
