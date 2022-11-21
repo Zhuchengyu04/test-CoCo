@@ -262,6 +262,10 @@ print_image() {
 	done
 }
 setup_env() {
+	echo "install go"
+	./setup/install_go.sh
+	echo "install rust"
+	./setup/install_rust.sh
 	echo "install Kubernetes"
 	git clone https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests >/dev/null
 	bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh >/dev/null
