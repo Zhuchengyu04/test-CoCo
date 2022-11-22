@@ -623,7 +623,7 @@ generate_cosign_image() {
     send "intel\r"
     expect eof
 EOF
-cp /usr/local/bin/cosign-linux-amd64 /usr/local/bin/cosign
+    cp /usr/local/bin/cosign-linux-amd64 /usr/local/bin/cosign
 
 }
 generate_tests_cosign_image() {
@@ -716,10 +716,13 @@ run_registry() {
         docker rm $REGISTRY_CONTAINER
     fi
     generate_crt
-    cp $TEST_COCO_PATH/../certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
-
-    update-ca-certificates
-
+    if [ $OPERATING_SYSTEM_VERSION == "ubuntu" ]; then
+        cp $TEST_COCO_PATH/../certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
+        update-ca-certificates
+    elif [ $OPERATING_SYSTEM_VERSION == "CentOS Stream" ]; then
+        cat $TEST_COCO_PATH/../certs/domain.crt >>/etc/pki/ca-trust/source/anchors/${REGISTRY_NAME}.crt
+        update-ca-trust
+    fi
     # Deploy docker registry
     docker run -d --restart=always --name $REGISTRY_NAME -v $TEST_COCO_PATH/../certs:/certs \
         -e REGISTRY_HTTP_ADDR=0.0.0.0:$PORT -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
@@ -733,9 +736,9 @@ run_registry() {
 pull_image() {
     VERSION=latest
     for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
-        docker pull $IMAGE:$VERSION > /dev/null 2>&1
-        docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION > /dev/null 2>&1
-        docker push $REGISTRY_NAME/$IMAGE:$VERSION > /dev/null 2>&1
+        docker pull $IMAGE:$VERSION >/dev/null 2>&1
+        docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION >/dev/null 2>&1
+        docker push $REGISTRY_NAME/$IMAGE:$VERSION >/dev/null 2>&1
     done
 }
 
@@ -818,7 +821,7 @@ read_config() {
     export GPG_EMAIL=$(jq -r '.certificates.gpgEmail' $TEST_COCO_PATH/../config/test_config.json)
 
     export REPORT_FILE_PATH="$TEST_COCO_PATH/../report/"
-
+    export OPERATING_SYSTEM_VERSION=$(cat /etc/os-release | grep "NAME" | sed -n "1,1p" | cut -d '=' -f2)
     if [ ! -d $katacontainers_repo_dir ]; then
         git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
     fi

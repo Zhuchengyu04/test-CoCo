@@ -37,8 +37,8 @@ test_pod_for_ccruntime() {
 reset_runtime() {
     OPERATOR_VERSION=$(jq -r .file.operatorVersion $TEST_COCO_PATH/../config/test_config.json)
     export KUBECONFIG=/etc/kubernetes/admin.conf
-    kubectl delete -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
-    # kubectl delete -f $GOPATH/src/github.com/operator-0.1.0/config/samples/ccruntime.yaml
+    # kubectl delete -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
+    kubectl delete -f $GOPATH/src/github.com/operator-${OPERATOR_VERSION}/config/samples/ccruntime.yaml
     # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/deploy/deploy.yaml
 
     # kubectl delete -f $GOPATH/src/github.com/operator-${OPERATOR_VERSION}/deploy/deploy.yaml
@@ -62,9 +62,9 @@ reset_runtime() {
 install_cc() {
     OPERATOR_VERSION=$(jq -r .file.operatorVersion $TEST_COCO_PATH/../config/test_config.json)
 
-    # wget https://github.com/confidential-containers/operator/archive/refs/tags/v${OPERATOR_VERSION}.tar.gz
-    # tar -zxf v${OPERATOR_VERSION}.tar.gz -C $GOPATH/src/github.com/
-    # rm v${OPERATOR_VERSION}.tar.gz
+    wget https://github.com/confidential-containers/operator/archive/refs/tags/v${OPERATOR_VERSION}.tar.gz
+    tar -zxf v${OPERATOR_VERSION}.tar.gz -C $GOPATH/src/github.com/
+    rm v${OPERATOR_VERSION}.tar.gz
     MASTER_NAME=$(kubectl get nodes | grep "control" | awk '{print $1}')
     kubectl label node $MASTER_NAME node-role.kubernetes.io/worker=
 
@@ -78,8 +78,8 @@ install_cc() {
         return 1
     fi
     sleep 1
-    kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
-    # kubectl apply -f $GOPATH/src/github.com/operator-${OPERATOR_VERSION}/config/samples/ccruntime.yaml
+    # kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
+    kubectl apply -f $GOPATH/src/github.com/operator-${OPERATOR_VERSION}/config/samples/ccruntime.yaml
     test_pod_for_ccruntime
     if [ $? -eq 1 ]; then
         echo "ERROR: confidential container runtime deploy failed !"
