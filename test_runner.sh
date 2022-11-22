@@ -25,7 +25,7 @@ Commands:
 	-b:	Measured boot tests
 	-m:	Multiple registries tests
 	-i:	Image sharing tests
-	-o:	OnDemand image pulling tests
+	-d:	OnDemand image pulling tests
 	-p:	TD preserving tests
 	-c:	Common Cloud Native projects tests
 	-a:	All tests
@@ -35,7 +35,7 @@ EOF
 parse_args() {
 	read_config
 
-	while getopts "uestabmiopfch :" opt; do
+	while getopts "uestabmiopfchd :" opt; do
 		case $opt in
 
 		u)
@@ -69,8 +69,11 @@ parse_args() {
 		m) ;;
 
 		i) ;;
-
-		o) ;;
+		o)
+			run_operator_install
+			run_operator_uninstall
+			;;
+		d) ;;
 
 		p) ;;
 		f)
@@ -263,12 +266,12 @@ print_image() {
 }
 setup_env() {
 	echo "install go"
-	./setup/install_go.sh
+	$SCRIPT_PATH/setup/install_go.sh
 	echo "install rust"
-	./setup/install_rust.sh
+	$SCRIPT_PATH/setup/install_rust.sh
 	echo "install Kubernetes"
-	git clone https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests >/dev/null
-	bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh >/dev/null
+	git clone https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests 
+	bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh 
 	echo "install bats"
 	$SCRIPT_PATH/setup/install_bats.sh
 	echo "install skopeo"
@@ -284,7 +287,7 @@ main() {
 	$SCRIPT_PATH/serverinfo/serverinfo-stdout.sh
 	echo -e "\n\n"
 
-	echo -e "\n--------Functions to be tested with testing images--------"
+	echo -e "\n--------Functions to be tested with CoCo workloads--------"
 
 	EXAMPLE_IMAGE_LISTS=$(jq -r .file.commentsImageLists[] $SCRIPT_PATH/config/test_config.json)
 	echo -e "multiple pod spec and images: "
