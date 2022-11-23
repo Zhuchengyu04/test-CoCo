@@ -123,12 +123,12 @@ Test_signed_image() {
 }
 Test_encrypted_image() {
 	
-	generate_encrypted_image
-	VERDICTDID=$(ps ux | grep "verdictd" | grep -v "grep" | awk '{print $2}')
-	if [ "$VERDICTDID" == "" ]; then
-		verdictd --listen 0.0.0.0:50000 --mutual >/dev/null 2>&1 &
-	fi
-	sleep 1
+	# generate_encrypted_image
+	# VERDICTDID=$(ps ux | grep "verdictd" | grep -v "grep" | awk '{print $2}')
+	# if [ "$VERDICTDID" == "" ]; then
+	# 	verdictd --listen 0.0.0.0:50000 --mutual >/dev/null 2>&1 &
+	# fi
+	# sleep 1
 	setup_eaa_decryption_files_in_guest
 	# $TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
 	for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
@@ -217,9 +217,9 @@ main() {
 	setup
 	read_config
 	# run_registry
-	remove_kernel_param "agent.enable_signature_verification"
+	# remove_kernel_param "agent.enable_signature_verification"
 	# $TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
-	# Test_install_operator
+	Test_install_operator
 	# start_local_registry
 	# install_runtime
 	# read_config

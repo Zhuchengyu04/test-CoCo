@@ -413,6 +413,7 @@ setup_http_proxy() {
         add_kernel_params "agent.https_proxy=$https_proxy"
     fi
 }
+
 generate_encrypted_image() {
     local IMAGE="$1"
     # Generate the key provider configuration file
@@ -514,8 +515,9 @@ setup_eaa_kbc_agent_config_in_guest() {
     # cat "${rootfs_agent_config}"
 }
 setup_eaa_decryption_files_in_guest() {
-
-    setup_eaa_kbc_agent_config_in_guest "eaa_kbc::10.239.159.53:50000"
+    add_kernel_params "agent.aa_kbc_params=eaa_kbc::10.112.240.208:50000"
+    # setup_eaa_kbc_agent_config_in_guest "eaa_kbc::10.239.159.53:50000"
+    # setup_eaa_kbc_agent_config_in_guest "eaa_kbc::10.112.240.208:50000"
 }
 setup_offline_decryption_files_in_guest() {
     add_kernel_params "agent.aa_kbc_params=offline_fs_kbc::null"
@@ -707,7 +709,9 @@ generate_crt() {
 12
 ESXU
 }
-
+get_certs_from_remote() {
+    echo "todo"
+}
 run_registry() {
     # delete all docker containers and images
     REGISTRY_CONTAINER=$(docker ps -a | grep "registry" | awk '{print $1}')
@@ -716,10 +720,10 @@ run_registry() {
         docker rm $REGISTRY_CONTAINER
     fi
     generate_crt
-    if [ $OPERATING_SYSTEM_VERSION == "ubuntu" ]; then
+    if [ "$OPERATING_SYSTEM_VERSION" == "Ubuntu" ]; then
         cp $TEST_COCO_PATH/../certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
         update-ca-certificates
-    elif [ $OPERATING_SYSTEM_VERSION == "CentOS Stream" ]; then
+    elif [ "$OPERATING_SYSTEM_VERSION" == "CentOS" ]; then
         cat $TEST_COCO_PATH/../certs/domain.crt >>/etc/pki/ca-trust/source/anchors/${REGISTRY_NAME}.crt
         update-ca-trust
     fi
@@ -736,9 +740,9 @@ run_registry() {
 pull_image() {
     VERSION=latest
     for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
-        docker pull $IMAGE:$VERSION >/dev/null 2>&1
-        docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION >/dev/null 2>&1
-        docker push $REGISTRY_NAME/$IMAGE:$VERSION >/dev/null 2>&1
+        docker pull $IMAGE:$VERSION 
+        docker tag $IMAGE:$VERSION $REGISTRY_NAME/ci-$IMAGE:$VERSION 
+        docker push $REGISTRY_NAME/ci-$IMAGE:$VERSION 
     done
 }
 
@@ -821,7 +825,7 @@ read_config() {
     export GPG_EMAIL=$(jq -r '.certificates.gpgEmail' $TEST_COCO_PATH/../config/test_config.json)
 
     export REPORT_FILE_PATH="$TEST_COCO_PATH/../report/"
-    export OPERATING_SYSTEM_VERSION=$(cat /etc/os-release | grep "NAME" | sed -n "1,1p" | cut -d '=' -f2)
+    export OPERATING_SYSTEM_VERSION=$(cat /etc/os-release | grep "NAME" | sed -n "1,1p" | cut -d '=' -f2|cut -d ' ' -f1| sed 's/\"//g')
     if [ ! -d $katacontainers_repo_dir ]; then
         git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
     fi
