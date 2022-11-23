@@ -5,6 +5,14 @@
 			"kata-qemu",
 			"kata-clh"
 		],
+		"TDXRuntimeClass": [
+			"kata-qemu-tdx",
+			"kata-clh-tdx"
+		],
+		"eaaTDXRuntimeClass": [
+			"kata-qemu-tdx-eaa-kbc",
+			"kata-clh-tdx-eaa-kbc"
+		],
 		"cpuNum": [
 			"25",
 			"50",

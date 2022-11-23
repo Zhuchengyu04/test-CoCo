@@ -212,7 +212,7 @@ run_encrypted_image_config() {
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		#docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
-		for runtimeclass in ${RUNTIMECLASS[@]}; do
+		for runtimeclass in ${EAATDXRUNTIMECLASS[@]}; do
 			cat "$(generate_tests_encrypted_image "$TEST_COCO_PATH/../templates/encrypted_image.template" ci-$image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
 			tests_passing+="|${str} ci-$image $image_size $runtimeclass"
 		done

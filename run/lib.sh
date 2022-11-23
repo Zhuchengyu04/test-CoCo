@@ -706,7 +706,7 @@ generate_crt() {
 12
 ESXU
 }
-set_docker_certs(){
+set_docker_certs() {
     if [ ! -d /etc/docker/certs.d/$REGISTRY_NAME:$PORT ]; then
         mkdir -p /etc/docker/certs.d/$REGISTRY_NAME:$PORT
     fi
@@ -754,9 +754,9 @@ run_registry() {
 pull_image() {
     VERSION=latest
     for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
-        docker pull $IMAGE:$VERSION 
-        docker tag $IMAGE:$VERSION $REGISTRY_NAME/ci-$IMAGE:$VERSION 
-        docker push $REGISTRY_NAME/ci-$IMAGE:$VERSION 
+        docker pull $IMAGE:$VERSION
+        docker tag $IMAGE:$VERSION $REGISTRY_NAME/ci-$IMAGE:$VERSION
+        docker push $REGISTRY_NAME/ci-$IMAGE:$VERSION
     done
 }
 
@@ -817,7 +817,13 @@ read_config() {
     export FIXTURES_DIR=$(jq -r '.config.podConfigPath' $TEST_COCO_PATH/../config/test_config.json)
     # export CONFIG_FILES=($(ls -l ${RUNTIME_CONFIG_PATH} | awk '{print $9}'))
     export CURRENT_CONFIG_FILE="configuration-qemu.toml"
-    export RUNTIMECLASS=$(jq -r '.config.runtimeClass[]' $TEST_COCO_PATH/../config/test_config.json)
+    TDX_STATUS=$(grep -o tdx /proc/cpuinfo)
+    if [ -z "$TDX_STATUS" ]; then
+        export RUNTIMECLASS=$(jq -r '.config.runtimeClass[]' $TEST_COCO_PATH/../config/test_config.json)
+    else
+        export RUNTIMECLASS=$(jq -r '.config.TDXRuntimeClass[]' $TEST_COCO_PATH/../config/test_config.json)
+    fi
+    export EAATDXRUNTIMECLASS=$(jq -r '.config.eaaTDXRuntimeClass[]' $TEST_COCO_PATH/../config/test_config.json)
     export CPUCONFIG=$(jq -r '.config.cpuNum[]' $TEST_COCO_PATH/../config/test_config.json)
     export MEMCONFIG=$(jq -r '.config.memSize[]' $TEST_COCO_PATH/../config/test_config.json)
 
@@ -838,7 +844,7 @@ read_config() {
     # export GPG_EMAIL=$(jq -r '.certificates.gpgEmail' $TEST_COCO_PATH/../config/test_config.json)
 
     export REPORT_FILE_PATH="$TEST_COCO_PATH/../report/"
-    export OPERATING_SYSTEM_VERSION=$(cat /etc/os-release | grep "NAME" | sed -n "1,1p" | cut -d '=' -f2|cut -d ' ' -f1| sed 's/\"//g')
+    export OPERATING_SYSTEM_VERSION=$(cat /etc/os-release | grep "NAME" | sed -n "1,1p" | cut -d '=' -f2 | cut -d ' ' -f1 | sed 's/\"//g')
     if [ ! -d $katacontainers_repo_dir ]; then
         git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
     fi
