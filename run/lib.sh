@@ -160,7 +160,6 @@ kubernetes_wait_cc_pod_be_running() {
 }
 kubernetes_wait_open_local_be_ready() {
     local wait_time="${1:-300}"
-    echo "$NODE_NAME"
     kubectl wait --timeout=${wait_time}s --for=jsonpath='{.status.filteredStorageInfo.volumeGroups[0]}'="open-local-pool-0" nodelocalstorage/$NODE_NAME
 }
 
@@ -452,9 +451,7 @@ EOF
 
     export OCICRYPT_KEYPROVIDER_CONFIG=/etc/containerd/ocicrypt/ocicrypt_keyprovider.conf
 
-    skopeo --insecure-policy copy docker://${REGISTRY_NAME}/${IMAGE}:latest oci:$STORAGE_FILE_D/${IMAGE}
-    skopeo copy --insecure-policy --remove-signatures --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 oci:$STORAGE_FILE_D/${IMAGE} docker://${REGISTRY_NAME}/${IMAGE}:encrypted
-    rm -r $STORAGE_FILE_D/${IMAGE}
+    skopeo copy --insecure-policy --remove-signatures --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 docker://${REGISTRY_NAME}/${IMAGE}:latest docker://${REGISTRY_NAME}/${IMAGE}:encrypted
 
     # generate encrypted image
 
@@ -709,8 +706,25 @@ generate_crt() {
 12
 ESXU
 }
+set_docker_certs(){
+    if [ ! -d /etc/docker/certs.d/$REGISTRY_NAME:$PORT ]; then
+        mkdir -p /etc/docker/certs.d/$REGISTRY_NAME:$PORT
+    fi
+
+    cp $TEST_COCO_PATH/../certs/domain.crt /etc/docker/certs.d/$REGISTRY_NAME:$PORT/ca.crt
+    systemctl restart docker
+}
 get_certs_from_remote() {
-    echo "todo"
+    scp chengyu@$REGISTRY_NAME:/certs/domain.* $TEST_COCO_PATH/../certs/
+    if [ "$OPERATING_SYSTEM_VERSION" == "Ubuntu" ]; then
+        cp $TEST_COCO_PATH/../certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
+        update-ca-certificates
+    elif [ "$OPERATING_SYSTEM_VERSION" == "CentOS" ]; then
+        cat $TEST_COCO_PATH/../certs/domain.crt >>/etc/pki/ca-trust/source/anchors/${REGISTRY_NAME}.crt
+        update-ca-trust
+    fi
+    set_docker_certs
+    # pull_image
 }
 run_registry() {
     # delete all docker containers and images
@@ -816,13 +830,12 @@ read_config() {
     export EXAMPLE_IMAGE_LISTS=$(jq -r .file.commentsImageLists[] $TEST_COCO_PATH/../config/test_config.json)
     export VERSION=latest
     export TYPE_NAME=$(jq -r '.certificates.type' $TEST_COCO_PATH/../config/test_config.json)
-    export REGISTRY_NAME=$(jq -r '.certificates.registry' $TEST_COCO_PATH/../config/test_config.json)
-    export NODE_NAME=$(jq -r '.certificates.nodeName' $TEST_COCO_PATH/../config/test_config.json)
+    # export REGISTRY_NAME=$(jq -r '.certificates.registry' $TEST_COCO_PATH/../config/test_config.json)
+    # export NODE_NAME=$(jq -r '.certificates.nodeName' $TEST_COCO_PATH/../config/test_config.json)
 
-    export PORT=$(jq -r '.certificates.port' $TEST_COCO_PATH/../config/test_config.json)
+    # export PORT=$(jq -r '.certificates.port' $TEST_COCO_PATH/../config/test_config.json)
     export STORAGE_FILE_D=$(jq -r '.certificates.imagePath' $TEST_COCO_PATH/../config/test_config.json)
-    export REGISTRY_IP=$(jq -r '.certificates.ip' $TEST_COCO_PATH/../config/test_config.json)
-    export GPG_EMAIL=$(jq -r '.certificates.gpgEmail' $TEST_COCO_PATH/../config/test_config.json)
+    # export GPG_EMAIL=$(jq -r '.certificates.gpgEmail' $TEST_COCO_PATH/../config/test_config.json)
 
     export REPORT_FILE_PATH="$TEST_COCO_PATH/../report/"
     export OPERATING_SYSTEM_VERSION=$(cat /etc/os-release | grep "NAME" | sed -n "1,1p" | cut -d '=' -f2|cut -d ' ' -f1| sed 's/\"//g')

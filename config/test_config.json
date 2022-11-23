@@ -32,20 +32,8 @@
 		"imageLists": [],
 		"operatorVersion": "0.2.0"
 	},
-	"proxies": {
-		"default": {
-			"httpProxy": "",
-			"httpsProxy": "",
-			"noProxy": ""
-		}
-	},
 	"certificates": {
 		"type": "DNS",
-		"registry": "zcy-Z390-AORUS-MASTER.sh.intel.com",
-		"nodeName": "zcy-z390-aorus-master",
-		"port": "443",
-		"imagePath": "./create_files",
-		"ip": "10.239.159.53",
-		"gpgEmail": "intel@intel.com"
+		"imagePath": "./create_files"
 	}
 }

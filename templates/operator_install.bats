@@ -21,8 +21,8 @@ setup() {
 	switch_image_service_offload on
 	add_kernel_params "agent.log=debug"
 	add_kernel_params "debug_console_enabled=true"
-	run_registry
-
+	#run_registry
+	get_certs_from_remote
 	$TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c
 }
 
