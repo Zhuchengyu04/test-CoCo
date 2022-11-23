@@ -129,8 +129,9 @@ run_operator_uninstall() {
 run_multiple_pod_spec_and_images_config() {
 	local new_pod_configs="$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats"
 	local str="Test_multiple_pod_spec_and_images"
+	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
-		#docker pull $image
+		docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
 			for cpunums in ${CPUCONFIG[@]}; do
@@ -141,7 +142,7 @@ run_multiple_pod_spec_and_images_config() {
 			done
 		done
 	done
-	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
+	
 
 	bats -f "$tests_passing" \
 		"$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats" -F junit
@@ -155,7 +156,7 @@ run_trust_storage_config() {
 	tests_passing="Test install open-local"
 	cp $pod_configs $new_pod_configs
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
-		#docker pull $image
+		docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
 			cat "$(generate_tests_trust_storage "$TEST_COCO_PATH/../templates/trust_storage.template" ci-$image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
@@ -173,7 +174,7 @@ run_signed_image_config() {
 	local new_pod_configs="$TEST_COCO_PATH/../tests/signed_image.bats"
 	local str="Test_signed_image"
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
-		#docker pull $image
+		docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
 			cat "$(generate_tests_signed_image "$TEST_COCO_PATH/../templates/signed_image.template" ci-$image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
@@ -191,7 +192,7 @@ run_cosigned_image_config() {
 	local str="Test_cosigned_image"
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
-		#docker pull $image
+		docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
 
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
@@ -210,7 +211,7 @@ run_encrypted_image_config() {
 	local str="Test_encrypted_image"
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
-		#docker pull $image
+		docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
 		for runtimeclass in ${EAATDXRUNTIMECLASS[@]}; do
 			cat "$(generate_tests_encrypted_image "$TEST_COCO_PATH/../templates/encrypted_image.template" ci-$image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
@@ -227,7 +228,7 @@ run_offline_encrypted_image_config() {
 	local new_pod_configs="$TEST_COCO_PATH/../tests/offline_encrypted_image.bats"
 	local str="Test_offline_encrypted_image"
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
-		#docker pull $image
+		docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
 			cat "$(generate_tests_offline_encrypted_image "$TEST_COCO_PATH/../templates/offline_encrypted_image.template" ci-$image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
@@ -246,7 +247,7 @@ run_measured_boot_image_config() {
 	local str="Test_measured_boot"
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
-		#docker pull $image
+		docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
 			cat "$(generate_tests_offline_encrypted_image "$TEST_COCO_PATH/../templates/measured_boot.template" ci-$image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null

@@ -99,6 +99,7 @@ install_runtime() {
     # iptables -P FORWARD ACCEPT
     kubeadm init --cri-socket /run/containerd/containerd.sock --pod-network-cidr=10.244.0.0/16 --image-repository registry.cn-hangzhou.aliyuncs.com/google_containers
     export KUBECONFIG=/etc/kubernetes/admin.conf
+    kubectl taint nodes --all node-role.kubernetes.io/control-plane-
     kubectl taint nodes --all node-role.kubernetes.io/master-
     # exit 0
     kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
