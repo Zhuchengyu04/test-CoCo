@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 set -e
-source run/common.bash
 
 parse_yaml() {
     local prefix=$2
@@ -184,17 +183,17 @@ kubernetes_create_cc_pod() {
     fi
 
     kubectl apply -f ${config_file}
-    if ! pod_name=$(kubectl get pods -o jsonpath='{.items..metadata.name}'); then
-        echo "Failed to create the pod"
-        return 1
-    fi
+    # if ! pod_name=$(kubectl get pods -o jsonpath='{.items..metadata.name}'); then
+    #     echo "Failed to create the pod"
+    #     return 1
+    # fi
 
-    if ! kubernetes_wait_cc_pod_be_ready "$pod_name"; then
-        # TODO: run this command for debugging. Maybe it should be
-        #       guarded by DEBUG=true?
-        kubectl get pods "$pod_name"
-        return 1
-    fi
+    # if ! kubernetes_wait_cc_pod_be_ready "$pod_name"; then
+    #     # TODO: run this command for debugging. Maybe it should be
+    #     #       guarded by DEBUG=true?
+    #     kubectl get pods "$pod_name"
+    #     return 1
+    # fi
 }
 enable_agent_console() {
 
@@ -640,22 +639,36 @@ generate_tests_cosign_image() {
     echo "$new_config"
 }
 #"$test_tag Test can pull an unencrypted unsigned image from an unprotected registry"
-unencrypted_signed_image_from_unprotected_registry() {
+unencrypted_unsigned_image_from_unprotected_registry() {
     pod_config="$1"
-    eval $(parse_yaml $pod_config "_")
-    echo $_metadata_name
+    # eval $(parse_yaml $pod_config "_")
+    # echo $_metadata_name
     create_test_pod $pod_config
-    if ! kubernetes_wait_cc_pod_be_running "$_metadata_name"; then
-        # TODO: run this command for debugging. Maybe it should be
-        #       guarded by DEBUG=true?
-        kubectl get pods "$_metadata_name"
-        return 1
-    fi
-    kubectl get pods
-    kubernetes_delete_cc_pod_if_exists $_metadata_name || true
+    # if ! kubernetes_wait_cc_pod_be_running "$_metadata_name"; then
+    #     # TODO: run this command for debugging. Maybe it should be
+    #     #       guarded by DEBUG=true?
+    #     kubectl get pods "$_metadata_name"
+    #     # return 1
+    # fi
+    # kubectl get pods
+    # kubernetes_delete_cc_pod_if_exists $_metadata_name || true
 
 }
-
+multiple_pods_delete() {
+    local runnin_pod_config=$(kubectl get pods -o jsonpath='{.items..metadata.name}')
+    for one in ${runnin_pod_config[@]}; do
+        if ! kubernetes_wait_cc_pod_be_running "$one"; then
+            # TODO: run this command for debugging. Maybe it should be
+            #       guarded by DEBUG=true?
+            kubectl get pods "$one"
+            echo "pod $one is not running"
+            # return 1
+        fi
+    done
+    for one in ${runnin_pod_config[@]}; do
+        kubernetes_delete_cc_pod_if_exists $one || true
+    done
+}
 # @test "$test_tag Test can pull an encrypted image inside the guest with decryption key"
 pull_encrypted_image_inside_guest_with_decryption_key() {
 
@@ -773,15 +786,16 @@ pull_image() {
 #	RUNTIMECLASS: set the runtimeClassName value from $RUNTIMECLASS.
 #
 new_pod_config() {
+
     local base_config="$1"
     local image="$2"
     local runtimeclass="$3"
     local registryimage="$4"
-    local cpu_num="$5"
-    local mem_size="$6"
-
+    local pod_num="$5"
+    local cpu_num="$6"
+    local mem_size="$7"
     local new_config=$(mktemp "$TEST_COCO_PATH/../fixtures/$(basename ${base_config}).XXX")
-    IMAGE="$image" RUNTIMECLASSNAME="$runtimeclass" REGISTRTYIMAGE="$registryimage" LIMITCPU="$cpu_num" REQUESTCPU="$cpu_num" LIMITMEM="$mem_size" REQUESTMEM="$mem_size" envsubst <"$base_config" >"$new_config"
+    IMAGE="$image" RUNTIMECLASSNAME="$runtimeclass" REGISTRTYIMAGE="$registryimage" NUM="$pod_num" LIMITCPU="$cpu_num" REQUESTCPU="$cpu_num" LIMITMEM="$mem_size" REQUESTMEM="$mem_size" envsubst <"$base_config" >"$new_config"
     echo "$new_config"
 }
 new_pod_config_normal() {
@@ -826,8 +840,8 @@ read_config() {
     export EAATDXRUNTIMECLASS=$(jq -r '.config.eaaTDXRuntimeClass[]' $TEST_COCO_PATH/../config/test_config.json)
     export CPUCONFIG=$(jq -r '.config.cpuNum[]' $TEST_COCO_PATH/../config/test_config.json)
     export MEMCONFIG=$(jq -r '.config.memSize[]' $TEST_COCO_PATH/../config/test_config.json)
-
-    export katacontainers_repo_dir=$GOPATH/src/github.com/kata-containers/kata-containers
+    export PODNUMCONFIG=$(jq -r '.config.podNum[]' $TEST_COCO_PATH/../config/test_config.json)
+    # export katacontainers_repo_dir=$GOPATH/src/github.com/kata-containers/kata-containers
     export ROOTFS_IMAGE_PATH="/opt/confidential-containers/share/kata-containers/kata-ubuntu-latest.image"
     export CONTAINERD_CONF_FILE="/etc/containerd/config.toml"
     export OPERATOR_VERSION=$(jq -r '.file.operatorVersion' $TEST_COCO_PATH/../config/test_config.json)
@@ -836,18 +850,13 @@ read_config() {
     export EXAMPLE_IMAGE_LISTS=$(jq -r .file.commentsImageLists[] $TEST_COCO_PATH/../config/test_config.json)
     export VERSION=latest
     export TYPE_NAME=$(jq -r '.certificates.type' $TEST_COCO_PATH/../config/test_config.json)
-    # export REGISTRY_NAME=$(jq -r '.certificates.registry' $TEST_COCO_PATH/../config/test_config.json)
-    # export NODE_NAME=$(jq -r '.certificates.nodeName' $TEST_COCO_PATH/../config/test_config.json)
-
-    # export PORT=$(jq -r '.certificates.port' $TEST_COCO_PATH/../config/test_config.json)
     export STORAGE_FILE_D=$(jq -r '.certificates.imagePath' $TEST_COCO_PATH/../config/test_config.json)
-    # export GPG_EMAIL=$(jq -r '.certificates.gpgEmail' $TEST_COCO_PATH/../config/test_config.json)
 
     export REPORT_FILE_PATH="$TEST_COCO_PATH/../report/"
     export OPERATING_SYSTEM_VERSION=$(cat /etc/os-release | grep "NAME" | sed -n "1,1p" | cut -d '=' -f2 | cut -d ' ' -f1 | sed 's/\"//g')
-    if [ ! -d $katacontainers_repo_dir ]; then
-        git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
-    fi
+    # if [ ! -d $katacontainers_repo_dir ]; then
+    #     git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
+    # fi
 }
 
 backup() {

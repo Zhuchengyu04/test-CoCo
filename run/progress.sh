@@ -1,4 +1,3 @@
-source run/common.bash
 csv_file="$TEST_COCO_PATH/../report/report.csv"
 all_tests=0
 all_success=0

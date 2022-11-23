@@ -39,7 +39,7 @@ parse_args() {
 		case $opt in
 
 		u)
-			run_operator_install
+			# run_operator_install
 			run_multiple_pod_spec_and_images_config
 			run_operator_uninstall
 			;;
@@ -109,10 +109,10 @@ parse_args() {
 	echo $tests_config
 }
 generate_tests() {
-	local base_config="$TEST_COCO_PATH/../templates/multiple_pod_spec_and_images.template"
+	local base_config="$TEST_COCO_PATH/../templates/multiple_pod_spec.template"
 	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
 
-	IMAGE="$1" IMAGE_SIZE="$2" RUNTIMECLASSNAME="$3" REGISTRTYIMAGE="$REGISTRY_NAME:$PORT/$1:$VERSION" POD_CPU_NUM="$4" POD_MEM_SIZE="$5" pod_config="\$pod_config" TEST_COCO_PATH="\$TEST_COCO_PATH" envsubst <"$base_config" >"$new_config"
+	IMAGE="$1" IMAGE_SIZE="$2" RUNTIMECLASSNAME="$3" REGISTRTYIMAGE="$REGISTRY_NAME:$PORT/$1:$VERSION" POD_NUM="$4" POD_CPU_NUM="$5" POD_MEM_SIZE="$6" pod_config="\$pod_config" TEST_COCO_PATH="$TEST_COCO_PATH" COUNTS="\$COUNTS" envsubst <"$base_config" >"$new_config"
 
 	echo "$new_config"
 }
@@ -129,20 +129,21 @@ run_operator_uninstall() {
 run_multiple_pod_spec_and_images_config() {
 	local new_pod_configs="$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats"
 	local str="Test_multiple_pod_spec_and_images"
-	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
+	echo -e "load ../run/lib.sh " | tee -a $new_pod_configs >/dev/null
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
 		docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
 			for cpunums in ${CPUCONFIG[@]}; do
 				for memsize in ${MEMCONFIG[@]}; do
-					cat "$(generate_tests ci-$image $image_size $runtimeclass $cpunums $memsize)" | tee -a $new_pod_configs >/dev/null
-					tests_passing+="|${str} ci-$image $image_size $runtimeclass ${cpunums} ${memsize}GB"
+					for podnum in ${PODNUMCONFIG[@]}; do
+						cat "$(generate_tests ci-$image $image_size $runtimeclass $podnum $cpunums $memsize)" | tee -a $new_pod_configs >/dev/null
+						tests_passing+="|${str} ci-$image $image_size $runtimeclass $podnum ${cpunums} ${memsize}GB"
+					done
 				done
 			done
 		done
 	done
-	
 
 	bats -f "$tests_passing" \
 		"$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats" -F junit
@@ -271,8 +272,8 @@ setup_env() {
 	echo "install rust"
 	$SCRIPT_PATH/setup/install_rust.sh
 	echo "install Kubernetes"
-	git clone https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests 
-	bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh 
+	git clone https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests
+	bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh
 	echo "install bats"
 	$SCRIPT_PATH/setup/install_bats.sh
 	echo "install skopeo"

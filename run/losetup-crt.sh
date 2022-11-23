@@ -4,7 +4,6 @@ if [ ! -f $1 ]; then
     exit 1
 fi
 
-source run/common.bash
 FLAG=$2
 MNT_DIR=$(basename -s .img $1)
 

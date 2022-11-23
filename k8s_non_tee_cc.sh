@@ -8,14 +8,17 @@ setup() {
 
 }
 new_pod_config() {
-	local base_config="$1"
-	local image="$2"
-	local runtimeclass="$3"
-	local registryimage="$4"
 
-	local new_config=$(mktemp "$TEST_COCO_PATH/../fixtures/$(basename ${base_config}).XXX")
-	IMAGE="$image" RUNTIMECLASS="$runtimeclass" REGISTRTYIMAGE="$registryimage" envsubst <"$base_config" >"$new_config"
-	echo "$new_config"
+    local base_config="$1"
+    local image="$2"
+    local runtimeclass="$3"
+    local registryimage="$4"
+    local pod_num="$5"
+    local cpu_num="$6"
+    local mem_size="$7"
+    local new_config=$(mktemp "$TEST_COCO_PATH/../fixtures/$(basename ${base_config}).XXX")
+    IMAGE="$image" RUNTIMECLASSNAME="$runtimeclass" REGISTRTYIMAGE="$registryimage" NUM="$pod_num" LIMITCPU="$cpu_num" REQUESTCPU="$cpu_num" LIMITMEM="$mem_size" REQUESTMEM="$mem_size" envsubst <"$base_config" >"$new_config"
+    echo "$new_config"
 }
 Test_install_operator() {
 	install_runtime
@@ -33,12 +36,13 @@ Test_install_operator() {
 }
 Test_unencrypted_unsigned_image() {
 
-	for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
-		pod_config="$(new_pod_config $TEST_COCO_PATH/../fixtures/unsigned-unprotected-pod-config.yaml.in "$IMAGE" "$RUNTIMECLASS" "$REGISTRY_NAME/$IMAGE:$VERSION")"
-
-		unencrypted_signed_image_from_unprotected_registry $pod_config
-		rm $pod_config
+	set_runtimeclass_config kata-qemu
+	for COUNTS in {1..3}; do
+		pod_config="$(new_pod_config /root/kata/test-CoCo/run/../fixtures/multiple_pod_spec-config.yaml.in "ci-ubuntu" "kata-qemu" "ngcn-registry.sh.intel.com:443/ci-ubuntu:latest" "$COUNTS" "25" "2")"
+		unencrypted_unsigned_image_from_unprotected_registry $pod_config
 	done
+	multiple_pods_delete
+	rm $TEST_COCO_PATH/../fixtures/multiple_pod_spec-config.yaml.in.*
 }
 Test_trust_storage() {
 	if [ ! -d $GOPATH/open-local ]; then
@@ -122,7 +126,7 @@ Test_signed_image() {
 	done
 }
 Test_encrypted_image() {
-	
+
 	# generate_encrypted_image
 	# VERDICTDID=$(ps ux | grep "verdictd" | grep -v "grep" | awk '{print $2}')
 	# if [ "$VERDICTDID" == "" ]; then
@@ -216,6 +220,7 @@ tests() {
 main() {
 	setup
 	read_config
+	Test_unencrypted_unsigned_image
 	# run_registry
 	# remove_kernel_param "agent.enable_signature_verification"
 	# $TEST_COCO_PATH/../run/losetup-crt.sh $ROOTFS_IMAGE_PATH c

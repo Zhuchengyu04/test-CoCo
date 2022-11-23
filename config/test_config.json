@@ -13,6 +13,11 @@
 			"kata-qemu-tdx-eaa-kbc",
 			"kata-clh-tdx-eaa-kbc"
 		],
+		"podNum":[
+			"1",
+			"2",
+			"4"
+		],
 		"cpuNum": [
 			"25",
 			"50",
