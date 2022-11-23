@@ -724,7 +724,7 @@ get_certs_from_remote() {
         update-ca-trust
     fi
     set_docker_certs
-    # pull_image
+    pull_image
 }
 run_registry() {
     # delete all docker containers and images
@@ -817,7 +817,7 @@ read_config() {
     export FIXTURES_DIR=$(jq -r '.config.podConfigPath' $TEST_COCO_PATH/../config/test_config.json)
     # export CONFIG_FILES=($(ls -l ${RUNTIME_CONFIG_PATH} | awk '{print $9}'))
     export CURRENT_CONFIG_FILE="configuration-qemu.toml"
-    TDX_STATUS=$(grep -o tdx /proc/cpuinfo)
+    # TDX_STATUS=$(grep -o tdx /proc/cpuinfo)
     if [ -z "$TDX_STATUS" ]; then
         export RUNTIMECLASS=$(jq -r '.config.runtimeClass[]' $TEST_COCO_PATH/../config/test_config.json)
     else
