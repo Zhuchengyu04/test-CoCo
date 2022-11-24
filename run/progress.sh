@@ -43,31 +43,15 @@ summary_result() {
     echo "$bats_name,$number_all,$number_success,$number_failures,$number_errors,$number_skipped,"$success_rate\%","${running_time}s",$log_path" | tee -a $csv_file
 }
 split_content() {
-    local file_path="$TEST_COCO_PATH/../report/junit.log"
-    local res=$(sed -n '/xml/=' $file_path)
-    local tests=$(sed -n '/testsuite name=/=' $file_path)
-    local nu_res=(${res// /})
-    local tests_res=(${tests// /})
-    local len=${#nu_res[@]}
-    local count=0
+    local nu_res=$(find $TEST_COCO_PATH/../report/ -name '*.xml' | wc -l)
+    local tests_res=$(find $TEST_COCO_PATH/../report/ -name '*.xml')
     local file_name=""
     cat /dev/null >$csv_file
     echo "Test_Category,Planned_Total,Success,Failures,Errors,Skipped,Pass,Time,Log" | tee -a $csv_file
-    for n in ${nu_res[@]}; do
-        if [ $count -lt $(($len - 1)) ]; then
-            name=$(sed -n ${tests_res[$count]}p $file_path | grep 'name' | awk -F '=' '{print $2}' | cut -d ' ' -f1 | cut -d '.' -f1 | cut -d '"' -f2)
-            tails_xml=${nu_res[$(($count + 1))]}
-            last_xml=$((${tails_xml} - 1))
-            sed -n "$n,${last_xml}p" $file_path >$TEST_COCO_PATH/../report/$name.xml
-            summary_result $TEST_COCO_PATH/../report/$name.xml ${name}-report.html
-            xunit-viewer -r $TEST_COCO_PATH/../report/$name.xml -t "Result Test" -o $TEST_COCO_PATH/../report/view/${name}-report.html
-        else
-            name=$(sed -n ${tests_res[$count]}p $file_path | grep 'name' | awk -F '=' '{print $2}' | cut -d ' ' -f1 | cut -d '.' -f1 | cut -d '"' -f2)
-            tail -n +$n $file_path >$TEST_COCO_PATH/../report/$name.xml
-            summary_result $TEST_COCO_PATH/../report/$name.xml ${name}-report.html
-            xunit-viewer -r $TEST_COCO_PATH/../report/$name.xml -t "Result Test" -o $TEST_COCO_PATH/../report/view/${name}-report.html
-        fi
-        count=$(($count + 1))
+    for t in ${tests_res[@]}; do
+        echo $t
+        summary_result $t "$(basename $t).html"
+        xunit-viewer -r $t -t "Result Test" -o "$(basename $t).html"
     done
     all_success_rate=$(echo "scale=2; $all_success/$all_tests*100" | bc)
     echo "Summary,$all_tests,$all_success,$all_failures,$all_error,$all_skipped,"$all_success_rate\%","${all_time}s",''" | tee -a $csv_file

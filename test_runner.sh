@@ -39,7 +39,7 @@ parse_args() {
 		case $opt in
 
 		u)
-			# run_operator_install
+			run_operator_install
 			run_multiple_pod_spec_and_images_config
 			run_operator_uninstall
 			;;
@@ -112,19 +112,21 @@ generate_tests() {
 	local base_config="$TEST_COCO_PATH/../templates/multiple_pod_spec.template"
 	local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
 
-	IMAGE="$1" IMAGE_SIZE="$2" RUNTIMECLASSNAME="$3" REGISTRTYIMAGE="$REGISTRY_NAME:$PORT/$1:$VERSION" POD_NUM="$4" POD_CPU_NUM="$5" POD_MEM_SIZE="$6" pod_config="\$pod_config" TEST_COCO_PATH="$TEST_COCO_PATH" COUNTS="\$COUNTS" envsubst <"$base_config" >"$new_config"
+	IMAGE="$1" IMAGE_SIZE="$2" RUNTIMECLASSNAME="$3" REGISTRTYIMAGE="$REGISTRY_NAME:$PORT/$1:$VERSION" POD_NUM="$4" POD_CPU_NUM="$5" POD_MEM_SIZE="$6" pod_config="\$pod_config" TEST_COCO_PATH="$TEST_COCO_PATH" COUNTS="\$COUNTS" status="\$status" envsubst <"$base_config" >"$new_config"
 
 	echo "$new_config"
 }
 run_operator_install() {
 	tests_passing="Test install operator"
-	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../templates/operator_install.bats" -F junit
+	echo "$(bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../templates/operator_install.bats" --report-formatter junit --output $TEST_COCO_PATH/../report/)"
+	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/operator_install.xml
 }
 run_operator_uninstall() {
 	tests_passing="Test uninstall operator"
-	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../templates/operator_uninstall.bats" -F junit
+	echo "$(bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../templates/operator_uninstall.bats" --report-formatter junit --output $TEST_COCO_PATH/../report/)"
+	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/operator_uninstall.xml
 }
 run_multiple_pod_spec_and_images_config() {
 	local new_pod_configs="$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats"
@@ -144,9 +146,9 @@ run_multiple_pod_spec_and_images_config() {
 			done
 		done
 	done
-
-	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats" -F junit
+	echo "$(bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats" --report-formatter junit --output $TEST_COCO_PATH/../report/)"
+	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/$(basename ${new_pod_configs}).xml
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/multiple_pod_spec_and_images-config.yaml.in.*
 }
@@ -167,8 +169,9 @@ run_trust_storage_config() {
 	done
 	cat "$TEST_COCO_PATH/../templates/operator_trust_storage.bats" | tee -a $new_pod_configs >/dev/null
 	tests_passing+="|Test uninstall open-local"
-	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/trust_storage.bats" -F junit
+	echo "$(bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../tests/trust_storage.bats" --report-formatter junit --output $TEST_COCO_PATH/../report/)"
+	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/$(basename ${new_pod_configs}).xml
 	rm -rf $TEST_COCO_PATH/../tests/*
 }
 run_signed_image_config() {
@@ -183,8 +186,9 @@ run_signed_image_config() {
 		done
 	done
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
-	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/signed_image.bats" -F junit
+	echo "$(bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../tests/signed_image.bats" --report-formatter junit --output $TEST_COCO_PATH/../report/)"
+	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/$(basename ${new_pod_configs}).xml
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/signed_image-config.yaml.in.*
 }
@@ -202,8 +206,9 @@ run_cosigned_image_config() {
 		done
 	done
 
-	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/cosigned_image.bats" -F junit
+	echo "$($bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../tests/cosigned_image.bats" --report-formatter junit --output $TEST_COCO_PATH/../report/)"
+	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/$(basename ${new_pod_configs}).xml
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/cosign-config.yaml.in.*
 }
@@ -220,8 +225,9 @@ run_encrypted_image_config() {
 		done
 	done
 
-	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/encrypted_image.bats" -F junit
+	echo "$(bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../tests/encrypted_image.bats" --report-formatter junit --output $TEST_COCO_PATH/../report/)"
+	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/$(basename ${new_pod_configs}).xml
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/encrypted_image-config.yaml.in.*
 }
@@ -238,8 +244,9 @@ run_offline_encrypted_image_config() {
 	done
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
 
-	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/offline_encrypted_image.bats" -F junit
+	echo "$(bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../tests/offline_encrypted_image.bats" --report-formatter junit --output $TEST_COCO_PATH/../report/)"
+	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/$(basename ${new_pod_configs}).xml
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/offline-encrypted-config.yaml.in.*
 }
@@ -255,8 +262,9 @@ run_measured_boot_image_config() {
 			tests_passing+="|${str} ci-$image $image_size $runtimeclass"
 		done
 	done
-	bats -f "$tests_passing" \
-		"$TEST_COCO_PATH/../tests/measured_boot.bats" -F junit
+	echo "$(bats -f "$tests_passing" \
+		"$TEST_COCO_PATH/../tests/measured_boot.bats" --report-formatter junit --output $TEST_COCO_PATH/../report/)"
+	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/$(basename ${new_pod_configs}).xml
 	rm -rf $TEST_COCO_PATH/../tests/*
 	rm -rf $TEST_COCO_PATH/../fixtures/measured-boot-config.yaml.in.*
 }
