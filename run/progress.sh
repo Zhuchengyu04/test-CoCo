@@ -6,6 +6,7 @@ all_error=0
 all_skipped=0
 all_time=0
 all_success_rate=0
+source run/common.bash
 summary_result() {
     local file_path="$1"
     local log_path="$2"
@@ -44,7 +45,7 @@ summary_result() {
 }
 split_content() {
     local nu_res=$(find $TEST_COCO_PATH/../report/ -name '*.xml' | wc -l)
-    local tests_res=$(ls -lrt $TEST_COCO_PATH/../report/*.xml| awk '{print $9}')
+    local tests_res=$(ls -lrt $TEST_COCO_PATH/../report/*.xml | awk '{print $9}')
     local file_name=""
     cat /dev/null >$csv_file
     echo "Test_Category,Planned_Total,Success,Failures,Errors,Skipped,Pass,Time,Log" | tee -a $csv_file

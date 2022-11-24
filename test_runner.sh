@@ -330,6 +330,7 @@ setup_env() {
 }
 
 main() {
+
 	$SCRIPT_PATH/serverinfo/serverinfo-stdout.sh
 	echo -e "\n\n"
 
