@@ -44,7 +44,7 @@ summary_result() {
 }
 split_content() {
     local nu_res=$(find $TEST_COCO_PATH/../report/ -name '*.xml' | wc -l)
-    local tests_res=$(find $TEST_COCO_PATH/../report/ -name '*.xml')
+    local tests_res=$(ls -lrt $TEST_COCO_PATH/../report/*.xml| awk '{print $9}')
     local file_name=""
     cat /dev/null >$csv_file
     echo "Test_Category,Planned_Total,Success,Failures,Errors,Skipped,Pass,Time,Log" | tee -a $csv_file
