@@ -51,7 +51,7 @@ split_content() {
     for t in ${tests_res[@]}; do
         echo $t
         summary_result $t "$(basename $t).html"
-        xunit-viewer -r $t -t "Result Test" -o "$(basename $t).html"
+        xunit-viewer -r $t -t "Result Test" -o "$TEST_COCO_PATH/../report/view/$(basename $t).html"
     done
     all_success_rate=$(echo "scale=2; $all_success/$all_tests*100" | bc)
     echo "Summary,$all_tests,$all_success,$all_failures,$all_error,$all_skipped,"$all_success_rate\%","${all_time}s",''" | tee -a $csv_file

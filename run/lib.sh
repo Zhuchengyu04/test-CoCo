@@ -817,8 +817,17 @@ set_runtimeclass_config() {
     "kata-clh")
         export CURRENT_CONFIG_FILE="configuration-clh.toml"
         ;;
-    *)
-        export CURRENT_CONFIG_FILE="configuration-qemu.toml"
+    "kata-qemu-tdx")
+        export CURRENT_CONFIG_FILE="configuration-qemu-tdx.toml"
+        ;;
+    "kata-clh-tdx")
+        export CURRENT_CONFIG_FILE="configuration-clh-tdx.toml"
+        ;;
+    "kata-clh-tdx-eaa-kbc")
+        export CURRENT_CONFIG_FILE="configuration-clh-tdx-eaa-kbc.toml"
+        ;;
+    "kata-qemu-tdx-eaa-kbc")
+        export CURRENT_CONFIG_FILE="configuration-qemu-tdx-eaa-kbc.toml"
         ;;
     esac
 
@@ -841,7 +850,8 @@ read_config() {
     export CPUCONFIG=$(jq -r '.config.cpuNum[]' $TEST_COCO_PATH/../config/test_config.json)
     export MEMCONFIG=$(jq -r '.config.memSize[]' $TEST_COCO_PATH/../config/test_config.json)
     export PODNUMCONFIG=$(jq -r '.config.podNum[]' $TEST_COCO_PATH/../config/test_config.json)
-    # export katacontainers_repo_dir=$GOPATH/src/github.com/kata-containers/kata-containers
+    export katacontainers_repo_dir=$GOPATH/src/github.com/kata-containers/kata-containers
+    export kata_test_repo_dir=$GOPATH/src/github.com/kata-containers/tests
     export ROOTFS_IMAGE_PATH="/opt/confidential-containers/share/kata-containers/kata-ubuntu-latest.image"
     export CONTAINERD_CONF_FILE="/etc/containerd/config.toml"
     export OPERATOR_VERSION=$(jq -r '.file.operatorVersion' $TEST_COCO_PATH/../config/test_config.json)
@@ -854,39 +864,13 @@ read_config() {
 
     export REPORT_FILE_PATH="$TEST_COCO_PATH/../report/"
     export OPERATING_SYSTEM_VERSION=$(cat /etc/os-release | grep "NAME" | sed -n "1,1p" | cut -d '=' -f2 | cut -d ' ' -f1 | sed 's/\"//g')
-    # if [ ! -d $katacontainers_repo_dir ]; then
-    #     git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
-    # fi
+    if [ ! -d $katacontainers_repo_dir ]; then
+        git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
+    fi
+    if [ ! -d $kata_test_repo_dir ]; then
+        git clone -b CCv0 https://github.com/kata-containers/tests $kata_test_repo_dir
+    fi
 }
-
-backup() {
-    # export BACKUP_PATH="$(mktemp -d)"
-    export BACKUP_PATH="/root/shells/kata/backup"
-    echo $BACKUP_PATH
-    if [ ! -d $BACKUP_PATH$RUNTIME_CONFIG_PATH ]; then
-        mkdir -p $BACKUP_PATH$RUNTIME_CONFIG_PATH
-    fi
-    cp -r $RUNTIME_CONFIG_PATH $BACKUP_PATH$RUNTIME_CONFIG_PATH
-    if [ ! -d $BACKUP_PATH$FIXTURES_DIR ]; then
-
-        mkdir -p $BACKUP_PATH$FIXTURES_DIR
-    fi
-    cp -r $FIXTURES_DIR $BACKUP_PATH$FIXTURES_DIR
-    if [ ! -d $BACKUP_PATH$(dirname ${ROOTFS_IMAGE_PATH}) ]; then
-
-        mkdir -p $BACKUP_PATH$(dirname ${ROOTFS_IMAGE_PATH})
-    fi
-    cp $ROOTFS_IMAGE_PATH $BACKUP_PATH$ROOTFS_IMAGE_PATH
-    if [ ! -d $BACKUP_PATH$(dirname ${CONTAINERD_CONF_FILE}) ]; then
-        mkdir -p $BACKUP_PATH$(dirname ${CONTAINERD_CONF_FILE})
-    fi
-    cp $CONTAINERD_CONF_FILE $BACKUP_PATH$CONTAINERD_CONF_FILE
-    if [ ! -d $TEST_DIR ]; then
-        mkdir -p $TEST_DIR
-    fi
-
-}
-
 restore() {
     # cp -r $BACKUP_PATH$RUNTIME_CONFIG_PATH ${RUNTIME_CONFIG_PATH}
     # cp -r $BACKUP_PATH$FIXTURES_DIR ${FIXTURES_DIR}
@@ -895,26 +879,232 @@ restore() {
     rm -r $katacontainers_repo_dir
     # rm -r $GOPATH
 }
-check_cc_runtime() {
-    RUNTIMELISTS=("kata" "kata-clh" "kata-clh-tdx" "kata-qemu" "kata-qemu-sev" "kata-qemu-tdx")
-    COUNT=0
-    for RUNTIME in ${RUNTIMELISTS[@]}; do
-        RUNTIMES=$(kubectl get runtimeclass -ojson | jq -r .items[$COUNT].metadata.name)
-        if [ "$RUNTIMES" != "$RUNTIME" ]; then
-            return 1
-        fi
-        COUNT=$COUNT+1
-    done
-    return 0
+
+clean_up() {
+    sh -c 'rm -rf /opt/cni/bin/*'
+    sh -c 'rm -rf /etc/cni /etc/kubernetes/'
+    sh -c 'rm -rf /var/lib/cni /var/lib/etcd /var/lib/kubelet'
+    sh -c 'rm -rf /run/flannel'
 }
-start_http_local_registry() {
-    registry_port="${REGISTRY_PORT:-5000}"
-    # registry_name="cc-registry"
-    docker run -d -p ${registry_port}:5000 --restart=always registry:2
-    VERSION=latest
-    for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
-        docker pull $IMAGE:$VERSION
-        docker tag $IMAGE:$VERSION localhost:5000/$IMAGE:$VERSION
-        docker push localhost:5000/$IMAGE:$VERSION
+extract_kata_env() {
+    RUNTIME_CONFIG_PATH=$(kata-runtime kata-env --json | jq -r .Runtime.Config.Path)
+    RUNTIME_VERSION=$(kata-runtime kata-env --json | jq -r .Runtime.Version | grep Semver | cut -d'"' -f4)
+    RUNTIME_COMMIT=$(kata-runtime kata-env --json | jq -r .Runtime.Version | grep Commit | cut -d'"' -f4)
+    RUNTIME_PATH=$(kata-runtime kata-env --json | jq -r .Runtime.Path)
+
+    # Shimv2 path is being affected by https://github.com/kata-containers/kata-containers/issues/1151
+    SHIM_PATH=$(command -v containerd-shim-kata-v2)
+    SHIM_VERSION=${RUNTIME_VERSION}
+
+    HYPERVISOR_PATH=$(kata-runtime kata-env --json | jq -r .Hypervisor.Path)
+    # TODO: there is no kata-runtime of rust version currently
+    if [ "${KATA_HYPERVISOR}" != "dragonball" ]; then
+        HYPERVISOR_VERSION=$(${HYPERVISOR_PATH} --version | head -n1)
+    fi
+    VIRTIOFSD_PATH=$(kata-runtime kata-env --json | jq -r .Hypervisor.VirtioFSDaemon)
+
+    INITRD_PATH=$(kata-runtime kata-env --json | jq -r .Initrd.Path)
+}
+kill_stale_process() {
+    clean_env_ctr
+    SHIM_PATH=$(command -v containerd-shim-kata-v2)
+    HYPERVISOR_PATH=$(/opt/confidential-containers/bin/kata-runtime kata-env --json | jq -r .Hypervisor.Path)
+    stale_process_union=("${stale_process_union[@]}" "${HYPERVISOR_PATH}" "${SHIM_PATH}")
+    for stale_process in "${stale_process_union[@]}"; do
+        [ -z "${stale_process}" ] && continue
+        local pids=$(pgrep -d ' ' -f "${stale_process}")
+        if [ -n "$pids" ]; then
+            sudo kill -9 ${pids} || true
+        fi
     done
+}
+delete_stale_docker_resource() {
+    systemctl stop docker.service docker.socket
+
+    # before removing stale docker dir, you should umount related resource
+    for stale_docker_mount_point in "${stale_docker_mount_point_union[@]}"; do
+        local mount_point_union=$(mount | grep "${stale_docker_mount_point}" | awk '{print $3}')
+        if [ -n "${mount_point_union}" ]; then
+            while IFS='$\n' read mount_point; do
+                [ -n "$(grep "${mount_point}" "/proc/mounts")" ] && sudo umount -R "${mount_point}"
+            done <<<"${mount_point_union}"
+        fi
+    done
+    # remove stale docker dir
+    for stale_docker_dir in "${stale_docker_dir_union[@]}"; do
+        if [ -d "${stale_docker_dir}" ]; then
+            rm -rf "${stale_docker_dir}"
+        fi
+    done
+
+    systemctl disable docker.service docker.socket
+    rm -f /etc/systemd/system/{docker.service,docker.socket}
+}
+clean_env_ctr() {
+    local count_running="$(ctr c list -q | wc -l)"
+    local remaining_attempts=10
+    declare -a running_tasks=()
+    local count_tasks=0
+    local sleep_time=1
+    local time_out=10
+
+    [ "$count_running" -eq "0" ] && return 0
+
+    readarray -t running_tasks < <(sudo ctr t list -q)
+
+    info "Wait until the containers gets removed"
+
+    for task_id in "${running_tasks[@]}"; do
+        sudo ctr t kill -a -s SIGTERM ${task_id} >/dev/null 2>&1
+        sleep 0.5
+    done
+
+    # do not stop if the command fails, it will be evaluated by waitForProcess
+    local cmd="[[ $(sudo ctr tasks list | grep -c "STOPPED") == "$count_running" ]]" || true
+
+    local res="ok"
+    waitForProcess "${time_out}" "${sleep_time}" "$cmd" || res="fail"
+
+    [ "$res" == "ok" ] || sudo systemctl restart containerd
+
+    while ((remaining_attempts > 0)); do
+        sudo ctr c rm $(sudo ctr c list -q) >/dev/null 2>&1
+
+        count_running="$(sudo ctr c list -q | wc -l)"
+
+        [ "$count_running" -eq 0 ] && break
+
+        remaining_attempts=$((remaining_attempts - 1))
+    done
+
+    count_tasks="$(sudo ctr t list -q | wc -l)"
+    if ((count_tasks > 0)); then
+        die "Can't remove running contaienrs."
+    fi
+}
+function get_version() {
+    dependency="$1"
+    versions_file="${katacontainers_repo_dir}/versions.yaml"
+
+    result=$("${GOPATH}/bin/yq" r -X "$versions_file" "$dependency")
+    [ "$result" = "null" ] && result=""
+    echo "$result"
+}
+
+delete_crio_stale_resource() {
+    # stale cri-o related binary
+    sudo rm -rf /usr/local/bin/crio
+    sudo sh -c 'rm -rf /usr/local/libexec/crio/*'
+    sudo rm -rf /usr/local/bin/crio-runc
+    # stale cri-o related configuration
+    sudo rm -rf /etc/crio/crio.conf
+    sudo rm -rf /usr/local/share/oci-umount/oci-umount.d/crio-umount.conf
+    sudo rm -rf /etc/crictl.yaml
+    # stale cri-o systemd service file
+    sudo rm -rf /etc/systemd/system/crio.service
+}
+
+delete_containerd_cri_stale_resource() {
+    # stop containerd service
+    sudo systemctl stop containerd
+    # remove stale binaries
+    containerd_cri_dir=$(get_version "externals.containerd.url")
+    release_bin_dir="${GOPATH}/src/${containerd_cri_dir}/bin"
+    binary_dir_union=("/usr/local/bin" "/usr/local/sbin")
+    for binary_dir in ${binary_dir_union[@]}; do
+        for stale_binary in ${release_bin_dir}/*; do
+            sudo rm -rf ${binary_dir}/$(basename ${stale_binary})
+        done
+    done
+    # remove cluster directory
+    sudo rm -rf /opt/containerd/
+    # remove containerd home/run directory
+    sudo rm -r /var/lib/containerd
+    sudo rm -r /var/lib/containerd-test
+    sudo rm -r /run/containerd
+    sudo rm -r /run/containerd-test
+    # remove configuration files
+    sudo rm -f /etc/containerd/config.toml
+    sudo rm -f /etc/crictl.yaml
+    sudo rm -f /etc/systemd/system/containerd.service
+}
+cleanup_network_interface() {
+	local FLANNEL=$(ls /sys/class/net | grep flannel)
+	local CNI=$(ls /sys/class/net | grep cni)
+
+	[ "$FLANNEL" != "" ] && sudo ip link del $FLANNEL
+	[ "$CNI" != "" ] && sudo ip link del $CNI
+
+	FLANNEL=$(ls /sys/class/net | grep flannel)
+	CNI=$(ls /sys/class/net | grep cni)
+
+	[ "$FLANNEL" != "" ] && info "$FLANNEL doesn't clean up"
+	[ "$CNI" != "" ] && info "$CNI doesn't clean up"
+}
+gen_clean_arch() {
+    KATA_DOCKER_TIMEOUT=30
+    # Set up some vars
+    stale_process_union=("docker-containerd-shim")
+    #docker supports different storage driver, such like overlay2, aufs, etc.
+    docker_storage_driver=$(timeout ${KATA_DOCKER_TIMEOUT} docker info --format='{{.Driver}}')
+    stale_docker_mount_point_union=("/var/lib/docker/containers" "/var/lib/docker/${docker_storage_driver}")
+    stale_docker_dir_union=("/var/lib/docker")
+    stale_kata_dir_union=("/var/lib/vc" "/run/vc" "/usr/share/kata-containers" "/usr/share/defaults/kata-containers")
+
+    info "kill stale process"
+    kill_stale_process
+    info "delete stale docker resource under ${stale_docker_dir_union[@]}"
+    delete_stale_docker_resource
+    info "remove containers started by ctr"
+    clean_env_ctr
+
+    # reset k8s service may impact metrics test on x86_64
+    [ $(uname -m) != "x86_64" -a "$(pgrep kubelet)" != "" ] && sudo sh -c 'kubeadm reset -f'
+    info "Remove installed kubernetes packages and configuration"
+    if [ "$ID" == ubuntu ]; then
+        rm -rf /etc/systemd/system/kubelet.service.d
+        systemctl daemon-reload
+        apt-get autoremove -y kubeadm kubelet kubectl
+    fi
+
+    # Remove existing k8s related configurations and binaries.
+    sh -c 'rm -rf /opt/cni/bin/*'
+    sh -c 'rm -rf /etc/cni /etc/kubernetes/'
+    sh -c 'rm -rf /var/lib/cni /var/lib/etcd /var/lib/kubelet'
+    sh -c 'rm -rf /run/flannel'
+
+    info "delete stale kata resource under ${stale_kata_dir_union[@]}"
+    delete_stale_kata_resource
+    info "Remove installed kata packages"
+    ${kata_test_repo_dir}/cmd/kata-manager/kata-manager.sh remove-packages
+    info "Remove installed cri-o related binaries and configuration"
+    delete_crio_stale_resource
+    info "Remove installed containerd-cri related binaries and configuration"
+    delete_containerd_cri_stale_resource
+
+    if [ "$OPERATING_SYSTEM_VERSION" == "Ubuntu" ]; then
+        sudo apt-get autoremove -y $(dpkg -l | awk '{print $2}' | grep -E '^(containerd(.\io)?|docker(\.io|-ce(-cli)?))$')
+    fi
+
+    info "Clean up stale network interface"
+    cleanup_network_interface
+
+    info "Clean GOCACHE"
+    if command -v go >/dev/null; then
+        GOCACHE=${GOCACHE:-$(go env GOCACHE)}
+    else
+        # if go isn't installed, try default dir
+        GOCACHE=${GOCACHE:-$HOME/.cache/go-build}
+    fi
+    [ -d "$GOCACHE" ] && sudo rm -rf ${GOCACHE}/*
+
+    info "Clean rust environment"
+    [ -f "${HOME}/.cargo/env" ] && source "${HOME}/.cargo/env"
+    if command -v rustup >/dev/null; then
+        info "uninstall rust using rustup"
+        sudo -E env PATH="${HOME}/.cargo/bin":$PATH rustup self uninstall -y
+    fi
+    # make sure cargo and rustup home dir are removed
+    info "remove cargo and rustup home dir"
+    sudo rm -rf ~/.cargo ~/.rustup
 }

@@ -206,7 +206,7 @@ run_cosigned_image_config() {
 		done
 	done
 
-	echo "$($bats -f "$tests_passing" \
+	echo "$(bats -f "$tests_passing" \
 		"$TEST_COCO_PATH/../tests/cosigned_image.bats" --report-formatter junit --output $TEST_COCO_PATH/../report/)"
 	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/$(basename ${new_pod_configs}).xml
 	rm -rf $TEST_COCO_PATH/../tests/*
@@ -293,6 +293,7 @@ setup_env() {
 	echo "install cosign"
 	install_cosign
 }
+
 main() {
 	$SCRIPT_PATH/serverinfo/serverinfo-stdout.sh
 	echo -e "\n\n"
@@ -340,6 +341,8 @@ main() {
 	fi
 	read_config
 	parse_args $@
+	clean_up
+	cleanup_network_interface
 
 }
 
