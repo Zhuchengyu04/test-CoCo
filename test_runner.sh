@@ -129,6 +129,11 @@ run_operator_uninstall() {
 	mv $TEST_COCO_PATH/../report/report.xml $TEST_COCO_PATH/../report/operator_uninstall.xml
 }
 run_multiple_pod_spec_and_images_config() {
+	test_pod_for_ccruntime
+	if [ $? -eq 1 ]; then
+        echo "ERROR: cc runtimes are not deployed"
+        return 1
+    fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats"
 	local str="Test_multiple_pod_spec_and_images"
 	echo -e "load ../run/lib.sh " | tee -a $new_pod_configs >/dev/null
@@ -153,6 +158,11 @@ run_multiple_pod_spec_and_images_config() {
 	rm -rf $TEST_COCO_PATH/../fixtures/multiple_pod_spec_and_images-config.yaml.in.*
 }
 run_trust_storage_config() {
+	test_pod_for_ccruntime
+	if [ $? -eq 1 ]; then
+        echo "ERROR: cc runtimes are not deployed"
+        return 1
+    fi
 	local pod_configs="$TEST_COCO_PATH/../templates/trust_storage.bats"
 	local new_pod_configs="$TEST_COCO_PATH/../tests/$(basename ${pod_configs})"
 	local str="Test_trust_storage"
@@ -175,6 +185,11 @@ run_trust_storage_config() {
 	rm -rf $TEST_COCO_PATH/../tests/*
 }
 run_signed_image_config() {
+	test_pod_for_ccruntime
+	if [ $? -eq 1 ]; then
+        echo "ERROR: cc runtimes are not deployed"
+        return 1
+    fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/signed_image.bats"
 	local str="Test_signed_image"
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
@@ -193,6 +208,11 @@ run_signed_image_config() {
 	rm -rf $TEST_COCO_PATH/../fixtures/signed_image-config.yaml.in.*
 }
 run_cosigned_image_config() {
+	test_pod_for_ccruntime
+	if [ $? -eq 1 ]; then
+        echo "ERROR: cc runtimes are not deployed"
+        return 1
+    fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/cosigned_image.bats"
 	local str="Test_cosigned_image"
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
@@ -213,6 +233,11 @@ run_cosigned_image_config() {
 	rm -rf $TEST_COCO_PATH/../fixtures/cosign-config.yaml.in.*
 }
 run_encrypted_image_config() {
+	test_pod_for_ccruntime
+	if [ $? -eq 1 ]; then
+        echo "ERROR: cc runtimes are not deployed"
+        return 1
+    fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/encrypted_image.bats"
 	local str="Test_encrypted_image"
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
@@ -232,6 +257,11 @@ run_encrypted_image_config() {
 	rm -rf $TEST_COCO_PATH/../fixtures/encrypted_image-config.yaml.in.*
 }
 run_offline_encrypted_image_config() {
+	test_pod_for_ccruntime
+	if [ $? -eq 1 ]; then
+        echo "ERROR: cc runtimes are not deployed"
+        return 1
+    fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/offline_encrypted_image.bats"
 	local str="Test_offline_encrypted_image"
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
@@ -251,6 +281,11 @@ run_offline_encrypted_image_config() {
 	rm -rf $TEST_COCO_PATH/../fixtures/offline-encrypted-config.yaml.in.*
 }
 run_measured_boot_image_config() {
+	test_pod_for_ccruntime
+	if [ $? -eq 1 ]; then
+        echo "ERROR: cc runtimes are not deployed"
+        return 1
+    fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/measured_boot.bats"
 	local str="Test_measured_boot"
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null

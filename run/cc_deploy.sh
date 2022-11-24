@@ -27,7 +27,7 @@ test_pod_for_ccruntime() {
     for pod in cc-operator-daemon-install cc-operator-pre-install-daemon; do
         cmd="kubectl get pods -n "$op_ns" --no-headers |"
         cmd+="egrep -q ${pod}.*'\<Running\>'"
-        if ! wait_for_process 600 30 "$cmd"; then
+        if ! wait_for_process 300 30 "$cmd"; then
             echo "ERROR: $pod pod is not running"
             return 1
         fi
