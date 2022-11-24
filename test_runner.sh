@@ -375,6 +375,9 @@ main() {
 		rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
 	fi
 	read_config
+	if [ ! -d $SCRIPT_PATH/report/view ];then
+		mkdir -p $SCRIPT_PATH/report/view 
+	fi
 	parse_args $@
 	clean_up
 	cleanup_network_interface
