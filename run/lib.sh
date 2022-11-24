@@ -950,7 +950,7 @@ clean_env_ctr() {
 
     [ "$count_running" -eq "0" ] && return 0
 
-    readarray -t running_tasks < <(sudo ctr t list -q)
+    # readarray -t running_tasks < <(sudo ctr t list -q)
 
     info "Wait until the containers gets removed"
 
