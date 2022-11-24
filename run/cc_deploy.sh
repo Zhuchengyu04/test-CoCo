@@ -1,5 +1,5 @@
 readonly op_ns="confidential-containers-system"
-source run/common.bash
+source $(pwd)/common.bash
 wait_for_process() {
     wait_time="$1"
     sleep_time="$2"

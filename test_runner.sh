@@ -2,8 +2,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 SCRIPT_PATH=$(pwd)
-echo "SCRIPT_PATH =$SCRIPT_PATH"
-exit 0 
 script_name=$(basename "$0")
 tests_passing=""
 tests_config=""

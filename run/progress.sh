@@ -6,7 +6,7 @@ all_error=0
 all_skipped=0
 all_time=0
 all_success_rate=0
-source run/common.bash
+source $(pwd)/common.bash
 summary_result() {
     local file_path="$1"
     local log_path="$2"
