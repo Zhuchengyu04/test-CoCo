@@ -34,6 +34,20 @@ test_pod_for_ccruntime() {
         fi
     done
 }
+remove_cni() {
+	local dev="cni0"
+
+	rm -rf /etc/cni/net.d
+	ip link set dev "$dev" down || true
+	ip link del "$dev" || true
+}
+
+remove_flannel() {
+	local dev="flannel.1"
+
+	ip link set dev "$dev" down || true
+	ip link del "$dev" || true
+}
 reset_runtime() {
     OPERATOR_VERSION=$(jq -r .file.operatorVersion $TEST_COCO_PATH/../config/test_config.json)
     export KUBECONFIG=/etc/kubernetes/admin.conf
@@ -57,6 +71,10 @@ reset_runtime() {
         docker stop $REGISTRY_CONTAINER
         docker rm $REGISTRY_CONTAINER
     fi
+    rm -rf ~/.kube/ || true
+    remove_cni
+
+    remove_flannel
     return 0
 }
 install_cc() {
@@ -77,7 +95,7 @@ install_cc() {
         echo "ERROR: operator deployment failed !"
         return 1
     fi
-    sleep 1
+    # sleep 1
     kubectl apply -f https://raw.githubusercontent.com/confidential-containers/operator/main/config/samples/ccruntime.yaml
     # kubectl apply -f $GOPATH/src/github.com/operator-${OPERATOR_VERSION}/config/samples/ccruntime.yaml
     test_pod_for_ccruntime
@@ -93,7 +111,7 @@ install_runtime() {
     # swapoff -a
     # modprobe br_netfilter
     # echo 1 >/proc/sys/net/ipv4/ip_forward
-    # # rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
+    # rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
     # systemctl daemon-reload
     # systemctl restart containerd
     # iptables -P FORWARD ACCEPT
@@ -110,6 +128,30 @@ install_runtime() {
     fi
     return 0
 }
+
+init_kubeadm() {
+    local kubeadm_config_file="/etc/kubeadm/kubeadm.conf"
+    # Bootstrap the control-plane node.
+    kubeadm init --config "${kubeadm_config_file}"
+
+    export KUBECONFIG=/etc/kubernetes/admin.conf
+
+    # TODO: if we want to run as a regular user.
+    #mkdir -p $HOME/.kube
+    #sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+    #sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+    # TODO: wait node to show up
+    #kubectl get nodes
+    kubectl apply -f /opt/flannel/kube-flannel.yml
+    kubectl taint nodes --all node-role.kubernetes.io/master-
+    install_cc
+    if [ $? -eq 1 ]; then
+        echo "ERROR: deploy cc runtime falied"
+        return 1
+    fi
+}
+# init_kubeadm
 # main "$@"
 # reset_runtime
 # install_runtime

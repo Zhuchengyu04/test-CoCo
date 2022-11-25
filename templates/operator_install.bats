@@ -12,7 +12,8 @@ setup() {
 
 
 @test "Test install operator" {
-	install_runtime
+	#install_runtime
+	init_kubeadm
 	echo "Prepare containerd for Confidential Container"
 
 	read_config

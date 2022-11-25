@@ -906,10 +906,12 @@ extract_kata_env() {
     INITRD_PATH=$(kata-runtime kata-env --json | jq -r .Initrd.Path)
 }
 kill_stale_process() {
-    clean_env_ctr
+    # clean_env_ctr
     SHIM_PATH=$(command -v containerd-shim-kata-v2)
     HYPERVISOR_PATH=$(/opt/confidential-containers/bin/kata-runtime kata-env --json | jq -r .Hypervisor.Path)
     stale_process_union=("${stale_process_union[@]}" "${HYPERVISOR_PATH}" "${SHIM_PATH}")
+    echo "333"
+    echo ${stale_process_union[@]}
     for stale_process in "${stale_process_union[@]}"; do
         [ -z "${stale_process}" ] && continue
         local pids=$(pgrep -d ' ' -f "${stale_process}")
@@ -952,7 +954,7 @@ clean_env_ctr() {
 
     # readarray -t running_tasks < <(sudo ctr t list -q)
 
-    info "Wait until the containers gets removed"
+    echo "Wait until the containers gets removed"
 
     for task_id in "${running_tasks[@]}"; do
         sudo ctr t kill -a -s SIGTERM ${task_id} >/dev/null 2>&1
@@ -993,9 +995,9 @@ function get_version() {
 
 delete_crio_stale_resource() {
     # stale cri-o related binary
-    sudo rm -rf /usr/local/bin/crio
+    # sudo rm -rf /usr/local/bin/crio
     sudo sh -c 'rm -rf /usr/local/libexec/crio/*'
-    sudo rm -rf /usr/local/bin/crio-runc
+    # sudo rm -rf /usr/local/bin/crio-runc
     # stale cri-o related configuration
     sudo rm -rf /etc/crio/crio.conf
     sudo rm -rf /usr/local/share/oci-umount/oci-umount.d/crio-umount.conf
@@ -1010,19 +1012,19 @@ delete_containerd_cri_stale_resource() {
     # remove stale binaries
     containerd_cri_dir=$(get_version "externals.containerd.url")
     release_bin_dir="${GOPATH}/src/${containerd_cri_dir}/bin"
-    binary_dir_union=("/usr/local/bin" "/usr/local/sbin")
-    for binary_dir in ${binary_dir_union[@]}; do
-        for stale_binary in ${release_bin_dir}/*; do
-            sudo rm -rf ${binary_dir}/$(basename ${stale_binary})
-        done
-    done
+    # binary_dir_union=("/usr/local/bin" "/usr/local/sbin")
+    # for binary_dir in ${binary_dir_union[@]}; do
+    #     for stale_binary in ${release_bin_dir}/*; do
+    #         sudo rm -rf ${binary_dir}/$(basename ${stale_binary})
+    #     done
+    # done
     # remove cluster directory
     sudo rm -rf /opt/containerd/
     # remove containerd home/run directory
     sudo rm -r /var/lib/containerd
     sudo rm -r /var/lib/containerd-test
     sudo rm -r /run/containerd
-    sudo rm -r /run/containerd-test
+    # sudo rm -r /run/containerd-test
     # remove configuration files
     sudo rm -f /etc/containerd/config.toml
     sudo rm -f /etc/crictl.yaml
@@ -1038,8 +1040,17 @@ cleanup_network_interface() {
 	FLANNEL=$(ls /sys/class/net | grep flannel)
 	CNI=$(ls /sys/class/net | grep cni)
 
-	[ "$FLANNEL" != "" ] && info "$FLANNEL doesn't clean up"
-	[ "$CNI" != "" ] && info "$CNI doesn't clean up"
+	[ "$FLANNEL" != "" ] && echo "$FLANNEL doesn't clean up"
+	[ "$CNI" != "" ] && echo "$CNI doesn't clean up"
+}
+
+delete_stale_kata_resource()
+{
+	for stale_kata_dir in "${stale_kata_dir_union[@]}"; do
+		if [ -d "${stale_kata_dir}" ]; then
+			sudo rm -rf "${stale_kata_dir}"
+		fi
+	done
 }
 gen_clean_arch() {
     KATA_DOCKER_TIMEOUT=30
@@ -1051,60 +1062,53 @@ gen_clean_arch() {
     stale_docker_dir_union=("/var/lib/docker")
     stale_kata_dir_union=("/var/lib/vc" "/run/vc" "/usr/share/kata-containers" "/usr/share/defaults/kata-containers")
 
-    info "kill stale process"
-    kill_stale_process
-    info "delete stale docker resource under ${stale_docker_dir_union[@]}"
+    echo "kill stale process"
+    # kill_stale_process
+    echo "delete stale docker resource under ${stale_docker_dir_union[@]}"
     delete_stale_docker_resource
-    info "remove containers started by ctr"
-    clean_env_ctr
+    echo "remove containers started by ctr"
+    # clean_env_ctr
 
     # reset k8s service may impact metrics test on x86_64
     [ $(uname -m) != "x86_64" -a "$(pgrep kubelet)" != "" ] && sudo sh -c 'kubeadm reset -f'
-    info "Remove installed kubernetes packages and configuration"
-    if [ "$ID" == ubuntu ]; then
-        rm -rf /etc/systemd/system/kubelet.service.d
-        systemctl daemon-reload
-        apt-get autoremove -y kubeadm kubelet kubectl
-    fi
-
+    echo "Remove installed kubernetes packages and configuration"
     # Remove existing k8s related configurations and binaries.
     sh -c 'rm -rf /opt/cni/bin/*'
     sh -c 'rm -rf /etc/cni /etc/kubernetes/'
     sh -c 'rm -rf /var/lib/cni /var/lib/etcd /var/lib/kubelet'
     sh -c 'rm -rf /run/flannel'
 
-    info "delete stale kata resource under ${stale_kata_dir_union[@]}"
+    echo "delete stale kata resource under ${stale_kata_dir_union[@]}"
     delete_stale_kata_resource
-    info "Remove installed kata packages"
-    ${kata_test_repo_dir}/cmd/kata-manager/kata-manager.sh remove-packages
-    info "Remove installed cri-o related binaries and configuration"
-    delete_crio_stale_resource
-    info "Remove installed containerd-cri related binaries and configuration"
+    echo "Remove installed kata packages"
+    # ${kata_test_repo_dir}/cmd/kata-manager/kata-manager.sh remove-packages
+    echo "Remove installed cri-o related binaries and configuration"
+    # delete_crio_stale_resource
+    echo "Remove installed containerd-cri related binaries and configuration"
     delete_containerd_cri_stale_resource
 
     if [ "$OPERATING_SYSTEM_VERSION" == "Ubuntu" ]; then
         sudo apt-get autoremove -y $(dpkg -l | awk '{print $2}' | grep -E '^(containerd(.\io)?|docker(\.io|-ce(-cli)?))$')
     fi
 
-    info "Clean up stale network interface"
+    echo "Clean up stale network interface"
     cleanup_network_interface
+    # info "Clean GOCACHE"
+    # if command -v go >/dev/null; then
+    #     GOCACHE=${GOCACHE:-$(go env GOCACHE)}
+    # else
+    #     # if go isn't installed, try default dir
+    #     GOCACHE=${GOCACHE:-$HOME/.cache/go-build}
+    # fi
+    # [ -d "$GOCACHE" ] && sudo rm -rf ${GOCACHE}/*
 
-    info "Clean GOCACHE"
-    if command -v go >/dev/null; then
-        GOCACHE=${GOCACHE:-$(go env GOCACHE)}
-    else
-        # if go isn't installed, try default dir
-        GOCACHE=${GOCACHE:-$HOME/.cache/go-build}
-    fi
-    [ -d "$GOCACHE" ] && sudo rm -rf ${GOCACHE}/*
-
-    info "Clean rust environment"
-    [ -f "${HOME}/.cargo/env" ] && source "${HOME}/.cargo/env"
-    if command -v rustup >/dev/null; then
-        info "uninstall rust using rustup"
-        sudo -E env PATH="${HOME}/.cargo/bin":$PATH rustup self uninstall -y
-    fi
-    # make sure cargo and rustup home dir are removed
-    info "remove cargo and rustup home dir"
-    sudo rm -rf ~/.cargo ~/.rustup
+    # info "Clean rust environment"
+    # [ -f "${HOME}/.cargo/env" ] && source "${HOME}/.cargo/env"
+    # if command -v rustup >/dev/null; then
+    #     info "uninstall rust using rustup"
+    #     sudo -E env PATH="${HOME}/.cargo/bin":$PATH rustup self uninstall -y
+    # fi
+    # # make sure cargo and rustup home dir are removed
+    # info "remove cargo and rustup home dir"
+    # sudo rm -rf ~/.cargo ~/.rustup
 }

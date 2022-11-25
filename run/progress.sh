@@ -1,3 +1,4 @@
+source $(pwd)/run/common.bash
 csv_file="$TEST_COCO_PATH/../report/report.csv"
 all_tests=0
 all_success=0
@@ -6,7 +7,6 @@ all_error=0
 all_skipped=0
 all_time=0
 all_success_rate=0
-source $(pwd)/common.bash
 summary_result() {
     local file_path="$1"
     local log_path="$2"

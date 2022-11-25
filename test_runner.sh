@@ -131,9 +131,9 @@ run_operator_uninstall() {
 run_multiple_pod_spec_and_images_config() {
 	test_pod_for_ccruntime
 	if [ $? -eq 1 ]; then
-        echo "ERROR: cc runtimes are not deployed"
-        return 1
-    fi
+		echo "ERROR: cc runtimes are not deployed"
+		return 1
+	fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/multiple_pod_spec_and_images.bats"
 	local str="Test_multiple_pod_spec_and_images"
 	echo -e "load ../run/lib.sh " | tee -a $new_pod_configs >/dev/null
@@ -160,9 +160,9 @@ run_multiple_pod_spec_and_images_config() {
 run_trust_storage_config() {
 	test_pod_for_ccruntime
 	if [ $? -eq 1 ]; then
-        echo "ERROR: cc runtimes are not deployed"
-        return 1
-    fi
+		echo "ERROR: cc runtimes are not deployed"
+		return 1
+	fi
 	local pod_configs="$TEST_COCO_PATH/../templates/trust_storage.bats"
 	local new_pod_configs="$TEST_COCO_PATH/../tests/$(basename ${pod_configs})"
 	local str="Test_trust_storage"
@@ -187,9 +187,9 @@ run_trust_storage_config() {
 run_signed_image_config() {
 	test_pod_for_ccruntime
 	if [ $? -eq 1 ]; then
-        echo "ERROR: cc runtimes are not deployed"
-        return 1
-    fi
+		echo "ERROR: cc runtimes are not deployed"
+		return 1
+	fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/signed_image.bats"
 	local str="Test_signed_image"
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
@@ -210,9 +210,9 @@ run_signed_image_config() {
 run_cosigned_image_config() {
 	test_pod_for_ccruntime
 	if [ $? -eq 1 ]; then
-        echo "ERROR: cc runtimes are not deployed"
-        return 1
-    fi
+		echo "ERROR: cc runtimes are not deployed"
+		return 1
+	fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/cosigned_image.bats"
 	local str="Test_cosigned_image"
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
@@ -235,9 +235,9 @@ run_cosigned_image_config() {
 run_encrypted_image_config() {
 	test_pod_for_ccruntime
 	if [ $? -eq 1 ]; then
-        echo "ERROR: cc runtimes are not deployed"
-        return 1
-    fi
+		echo "ERROR: cc runtimes are not deployed"
+		return 1
+	fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/encrypted_image.bats"
 	local str="Test_encrypted_image"
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
@@ -259,9 +259,9 @@ run_encrypted_image_config() {
 run_offline_encrypted_image_config() {
 	test_pod_for_ccruntime
 	if [ $? -eq 1 ]; then
-        echo "ERROR: cc runtimes are not deployed"
-        return 1
-    fi
+		echo "ERROR: cc runtimes are not deployed"
+		return 1
+	fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/offline_encrypted_image.bats"
 	local str="Test_offline_encrypted_image"
 	for image in ${EXAMPLE_IMAGE_LISTS[@]}; do
@@ -283,9 +283,9 @@ run_offline_encrypted_image_config() {
 run_measured_boot_image_config() {
 	test_pod_for_ccruntime
 	if [ $? -eq 1 ]; then
-        echo "ERROR: cc runtimes are not deployed"
-        return 1
-    fi
+		echo "ERROR: cc runtimes are not deployed"
+		return 1
+	fi
 	local new_pod_configs="$TEST_COCO_PATH/../tests/measured_boot.bats"
 	local str="Test_measured_boot"
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
@@ -311,29 +311,45 @@ print_image() {
 }
 setup_env() {
 	echo "install go"
-	$SCRIPT_PATH/setup/install_go.sh
+	# $SCRIPT_PATH/setup/install_go.sh
 	echo "install rust"
 	$SCRIPT_PATH/setup/install_rust.sh
+	source "$HOME/.cargo/env"
 	echo "install Kubernetes"
-	git clone https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests
-	bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh
+	# if [ -d $GOPATH/src/github.com/kata-containers/tests ]; then
+	# 	rm -r $GOPATH/src/github.com/kata-containers/tests
+	# fi
+	local operator_repo=$GOPATH/src/github.com/operator
+	if [ -d $operator_repo ]; then
+		rm -r $operator_repo
+	fi
+	git clone https://github.com/ChengyuZhu6/operator.git $operator_repo
+	export KUBECONFIG=/etc/kubernetes/admin.conf
+	bash $operator_repo/tests/e2e/run-local.sh -r kata-qemu
+	# git clone -b 2022-12-24 https://github.com/ChengyuZhu6/tests.git $GOPATH/src/github.com/kata-containers/tests
+	# bash $GOPATH/src/github.com/kata-containers/tests/.ci/setup.sh
+
 	echo "install bats"
-	$SCRIPT_PATH/setup/install_bats.sh
+	# $SCRIPT_PATH/setup/install_bats.sh
 	echo "install skopeo"
-	install_skopeo
+	# install_skopeo
 	echo "install attestation-agent"
-	install_attestation_agent
+	# install_attestation_agent
 	echo "install verdictd"
-	install_verdictd
+	# install_verdictd
 	echo "install cosign"
-	install_cosign
+	# install_cosign
 }
 
 main() {
-
+	read_config
+	# clean_up
+	# cleanup_network_interface
+	# gen_clean_arch
+	# exit 0
 	$SCRIPT_PATH/serverinfo/serverinfo-stdout.sh
 	echo -e "\n\n"
-
+	
 	echo -e "\n--------Functions to be tested with CoCo workloads--------"
 
 	EXAMPLE_IMAGE_LISTS=$(jq -r .file.commentsImageLists[] $SCRIPT_PATH/config/test_config.json)
@@ -358,7 +374,7 @@ main() {
 	echo -e "Common Cloud Native projects: TODO"
 	echo -e "\n"
 	echo -e "-------Install Depedencies:-------\n"
-	# setup_env
+	setup_env
 	echo "--------Operator Version--------"
 	OPERATOR_VERSION=$(jq -r .file.operatorVersion $SCRIPT_PATH/config/test_config.json)
 	echo "Operator Version: $OPERATOR_VERSION"
@@ -375,14 +391,15 @@ main() {
 	if [ -f /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf ]; then
 		rm /etc/systemd/system/containerd.service.d/containerd-for-cc-override.conf
 	fi
-	read_config
-	if [ ! -d $SCRIPT_PATH/report/view ];then
-		mkdir -p $SCRIPT_PATH/report/view 
+
+	if [ ! -d $SCRIPT_PATH/report/view ]; then
+		mkdir -p $SCRIPT_PATH/report/view
 	fi
 	parse_args $@
+	# echo $(gen_clean_arch)
+	rm -r $GOPATH/src/github.com/operator
 	clean_up
 	cleanup_network_interface
-
 }
 
 main "$@"
