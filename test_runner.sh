@@ -313,8 +313,8 @@ setup_env() {
 	echo "install go"
 	# $SCRIPT_PATH/setup/install_go.sh
 	echo "install rust"
-	$SCRIPT_PATH/setup/install_rust.sh
-	source "$HOME/.cargo/env"
+	# $SCRIPT_PATH/setup/install_rust.sh
+	# source "$HOME/.cargo/env"
 	echo "install Kubernetes"
 	# if [ -d $GOPATH/src/github.com/kata-containers/tests ]; then
 	# 	rm -r $GOPATH/src/github.com/kata-containers/tests

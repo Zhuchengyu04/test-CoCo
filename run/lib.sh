@@ -910,7 +910,6 @@ kill_stale_process() {
     SHIM_PATH=$(command -v containerd-shim-kata-v2)
     HYPERVISOR_PATH=$(/opt/confidential-containers/bin/kata-runtime kata-env --json | jq -r .Hypervisor.Path)
     stale_process_union=("${stale_process_union[@]}" "${HYPERVISOR_PATH}" "${SHIM_PATH}")
-    echo "333"
     echo ${stale_process_union[@]}
     for stale_process in "${stale_process_union[@]}"; do
         [ -z "${stale_process}" ] && continue
@@ -1031,8 +1030,8 @@ delete_containerd_cri_stale_resource() {
     sudo rm -f /etc/systemd/system/containerd.service
 }
 cleanup_network_interface() {
-	local FLANNEL=$(ls /sys/class/net | grep flannel)
-	local CNI=$(ls /sys/class/net | grep cni)
+	 FLANNEL=$(ls /sys/class/net | grep flannel)
+	 CNI=$(ls /sys/class/net | grep cni)
 
 	[ "$FLANNEL" != "" ] && sudo ip link del $FLANNEL
 	[ "$CNI" != "" ] && sudo ip link del $CNI
