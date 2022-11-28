@@ -238,7 +238,6 @@ run_encrypted_image_config() {
 		echo "ERROR: cc runtimes are not deployed"
 		return 1
 	fi
-	rm $TEST_COCO_PATH/../tests/*
 	local new_pod_configs="$TEST_COCO_PATH/../tests/encrypted_image.bats"
 	local str="Test_encrypted_image"
 	echo -e "load ../run/lib.sh \n load ../run/cc_deploy.sh \n read_config" | tee -a $new_pod_configs >/dev/null
