@@ -995,7 +995,7 @@ function get_version() {
 delete_crio_stale_resource() {
     # stale cri-o related binary
     # sudo rm -rf /usr/local/bin/crio
-    sudo sh -c 'rm -rf /usr/local/libexec/crio/*'
+    # sudo sh -c 'rm -rf /usr/local/libexec/crio/*'
     # sudo rm -rf /usr/local/bin/crio-runc
     # stale cri-o related configuration
     sudo rm -rf /etc/crio/crio.conf
