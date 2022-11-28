@@ -90,13 +90,13 @@ parse_args() {
 
 		a)
 			run_operator_install
-			run_multiple_pod_spec_and_images_config
+			# run_multiple_pod_spec_and_images_config
 			run_encrypted_image_config
 			run_offline_encrypted_image_config
-			run_signed_image_config
-			run_cosigned_image_config
-			run_trust_storage_config
-			run_measured_boot_image_config
+			# run_signed_image_config
+			# run_cosigned_image_config
+			# run_trust_storage_config
+			# run_measured_boot_image_config
 			run_operator_uninstall
 			;;
 		h) usage 0 ;;
@@ -245,6 +245,7 @@ run_encrypted_image_config() {
 		docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
 		for runtimeclass in ${EAATDXRUNTIMECLASS[@]}; do
+			echo "runtimeclass = $runtimeclass"
 			cat "$(generate_tests_encrypted_image "$TEST_COCO_PATH/../templates/encrypted_image.template" ci-$image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
 			tests_passing+="|${str} ci-$image $image_size $runtimeclass"
 		done
@@ -268,6 +269,7 @@ run_offline_encrypted_image_config() {
 		docker pull $image
 		image_size=$(docker image ls | grep ci-$image | head -1 | awk '{print $7}')
 		for runtimeclass in ${RUNTIMECLASS[@]}; do
+			echo "runtimeclass = $runtimeclass"
 			cat "$(generate_tests_offline_encrypted_image "$TEST_COCO_PATH/../templates/offline_encrypted_image.template" ci-$image $image_size $runtimeclass)" | tee -a $new_pod_configs >/dev/null
 			tests_passing+="|${str} ci-$image $image_size $runtimeclass"
 		done
@@ -349,7 +351,7 @@ main() {
 	# exit 0
 	$SCRIPT_PATH/serverinfo/serverinfo-stdout.sh
 	echo -e "\n\n"
-	
+
 	echo -e "\n--------Functions to be tested with CoCo workloads--------"
 
 	EXAMPLE_IMAGE_LISTS=$(jq -r .file.commentsImageLists[] $SCRIPT_PATH/config/test_config.json)
