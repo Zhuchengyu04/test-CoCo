@@ -7,8 +7,9 @@ kind: Pod
 metadata:
   name: unsigned-unencrypted-cc
 spec:
-  runtimeClassName: kata-qemu
+  runtimeClassName: $RUNTIMECLASSNAME
   containers:
-    - name: busybox
-      image: zcy-Z390-AORUS-MASTER.sh.intel.com/busybox:latest
+    - name: $IMAGE
+      image: $REGISTRTYIMAGE
       imagePullPolicy: Always
+

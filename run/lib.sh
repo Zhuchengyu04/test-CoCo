@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 
 set -e
-source run/common.bash
-
+source $(pwd)/run/common.bash
 parse_yaml() {
     local prefix=$2
     local s='[[:space:]]*' w='[a-zA-Z0-9_]*' fs=$(echo @ | tr @ '\034')
@@ -19,45 +18,7 @@ parse_yaml() {
       }
    }'
 }
-# Toggle between true and false the service_offload configuration of
-# the Kata agent.
-#
-# Parameters:
-#	$1: "on" to activate the service, or "off" to turn it off.
-#
-# Environment variables:
-#	RUNTIME_CONFIG_PATH - path to kata's configuration.toml. If it is not
-#			      export then it will figure out the path via
-#			      `kata-runtime env` and export its value.
-#
 
-extract_kata_env() {
-    # RUNTIME_CONFIG_PATH=$(kata-runtime kata-env --json | jq -r .Runtime.Config.Path)
-    RUNTIME_VERSION=$(kata-runtime kata-env --json | jq -r .Runtime.Version | grep Semver | cut -d'"' -f4)
-    RUNTIME_COMMIT=$(kata-runtime kata-env --json | jq -r .Runtime.Version | grep Commit | cut -d'"' -f4)
-    RUNTIME_PATH=$(kata-runtime kata-env --json | jq -r .Runtime.Path)
-
-    # Shimv2 path is being affected by https://github.com/kata-containers/kata-containers/issues/1151
-    SHIM_PATH=$(command -v containerd-shim-kata-v2)
-    SHIM_VERSION=${RUNTIME_VERSION}
-
-    HYPERVISOR_PATH=$(kata-runtime kata-env --json | jq -r .Hypervisor.Path)
-    # TODO: there is no kata-runtime of rust version currently
-    if [ "${KATA_HYPERVISOR}" != "dragonball" ]; then
-        HYPERVISOR_VERSION=$(${HYPERVISOR_PATH} --version | head -n1)
-    fi
-    VIRTIOFSD_PATH=$(kata-runtime kata-env --json | jq -r .Hypervisor.VirtioFSDaemon)
-
-}
-#
-# Auxiliar functions.
-#
-
-# Export the RUNTIME_CONFIG_PATH variable if it not set already.
-#
-load_runtime_config_path() {
-    extract_kata_env
-}
 # Add parameters to the 'kernel_params' property on kata's configuration.toml
 #
 # Parameters:
@@ -72,7 +33,13 @@ add_kernel_params() {
     local params="$@"
 
     sudo sed -i -e 's#^\(kernel_params\) = "\(.*\)"#\1 = "\2 '"$params"'"#g' \
-        "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
+        "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
+}
+remove_kernel_param() {
+    local param_name="${1}"
+
+    sudo sed -i "/kernel_params = /s/$param_name=[^[:space:]\"]*//g" \
+        "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 }
 # Get the 'kernel_params' property on kata's configuration.toml
 #
@@ -82,11 +49,8 @@ add_kernel_params() {
 #			      `kata-runtime env` and export its value.
 #
 get_kernel_params() {
-    load_runtime_config_path
-    echo ${RUNTIME_PATH}
     local kernel_params=$(sed -n -e 's#^kernel_params = "\(.*\)"#\1#gp' \
-        "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES")
-    echo "${kernel_params}"
+        "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}")
 }
 # Configure containerd for confidential containers. Among other things, it ensures
 # the CRI handler is configured to deal with confidential container.
@@ -147,16 +111,15 @@ waitForProcess() {
 }
 switch_image_service_offload() {
     # Load the CURRENT_CONFIG_FILES variable.
-    load_runtime_config_path
 
     case "$1" in
     "on")
         sudo sed -i -e 's/^\(service_offload\).*=.*$/\1 = true/g' \
-            "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
+            "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
         ;;
     "off")
         sudo sed -i -e 's/^\(service_offload\).*=.*$/\1 = false/g' \
-            "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
+            "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 
         ;;
     *)
@@ -174,7 +137,7 @@ switch_image_service_offload() {
 clear_kernel_params() {
 
     sed -i -e 's#^\(kernel_params\) = "\(.*\)"#\1 = ""#g' \
-        "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
+        "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 }
 # Wait until the pod is not 'Ready'. Fail if it hits the timeout.
 #
@@ -194,6 +157,11 @@ kubernetes_wait_cc_pod_be_running() {
 
     kubectl wait --timeout=${wait_time}s --for=jsonpath='{.status.phase}'=Running pods/$pod_name
 }
+kubernetes_wait_open_local_be_ready() {
+    local wait_time="${1:-300}"
+    kubectl wait --timeout=${wait_time}s --for=jsonpath='{.status.filteredStorageInfo.volumeGroups[0]}'="open-local-pool-0" nodelocalstorage/$NODE_NAME
+}
+
 kubernetes_wait_cc_snapshot_be_ready() {
     local pod_name="$1"
     local wait_time="${2:-120}"
@@ -215,35 +183,57 @@ kubernetes_create_cc_pod() {
     fi
 
     kubectl apply -f ${config_file}
-    if ! pod_name=$(kubectl get pods -o jsonpath='{.items..metadata.name}'); then
-        echo "Failed to create the pod"
-        return 1
-    fi
+    # if ! pod_name=$(kubectl get pods -o jsonpath='{.items..metadata.name}'); then
+    #     echo "Failed to create the pod"
+    #     return 1
+    # fi
 
-    if ! kubernetes_wait_cc_pod_be_ready "$pod_name"; then
-        # TODO: run this command for debugging. Maybe it should be
-        #       guarded by DEBUG=true?
-        kubectl get pods "$pod_name"
-        return 1
-    fi
+    # if ! kubernetes_wait_cc_pod_be_ready "$pod_name"; then
+    #     # TODO: run this command for debugging. Maybe it should be
+    #     #       guarded by DEBUG=true?
+    #     kubectl get pods "$pod_name"
+    #     return 1
+    # fi
 }
 enable_agent_console() {
-    load_runtime_config_path
 
     sudo sed -i -e 's/^# *\(debug_console_enabled\).*=.*$/\1 = true/g' \
-        "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
+        "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 }
 
 enable_full_debug() {
     # Load the RUNTIME_CONFIG_PATH variable.
-    load_runtime_config_path
 
     # Toggle all the debug flags on in kata's configuration.toml to enable full logging.
-    sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' "$RUNTIME_CONFIG_PATH/$CURRENT_CONFIG_FILES"
+    sed -i -e 's/^# *\(enable_debug\).*=.*$/\1 = true/g' "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
 
     # Also pass the initcall debug flags via Kernel parameters.
     # add_kernel_params "agent.log=debug" "initcall_debug"
 }
+
+# Toggle between different measured rootfs verity schemes during tests.
+#
+# Parameters:
+#	$1: "none" to disable or "dm-verity" to enable measured boot.
+#
+# Environment variables:
+#	RUNTIME_CONFIG_PATH - path to kata's configuration.toml. If it is not
+#			      export then it will figure out the path via
+#			      `kata-runtime env` and export its value.
+#
+switch_measured_rootfs_verity_scheme() {
+    echo "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
+    case "$1" in
+    "dm-verity" | "none")
+        sudo sed -i -e 's/scheme=.* cc_rootfs/scheme='"$1"' cc_rootfs/g' \
+            "$RUNTIME_CONFIG_PATH/${CURRENT_CONFIG_FILE}"
+        ;;
+    *)
+        die "Unknown option '$1'"
+        ;;
+    esac
+}
+
 # Create the test pod.
 #
 # Note: the global $sandbox_name, $pod_config should be set
@@ -298,6 +288,13 @@ assert_logs_contain() {
     local message="$1"
     journalctl -x -t kata --since "$start_date" | grep "$message"
 }
+assert_pod_fail() {
+    local container_config="$1"
+    echo "In assert_pod_fail: "$container_config
+
+    echo "Attempt to create the container but it should fail"
+    ! kubernetes_create_cc_pod "$container_config" || /bin/false
+}
 checkout_pod_yaml() {
     pod_config=$1
     current_image_name=$2
@@ -315,12 +312,12 @@ checkout_pod_yaml() {
     # exit 0
 }
 checkout_snapshot_yaml() {
-    pod_config=$1
-    current_image_name=$2
+    local pod_config=$1
+    local current_image_name=$2
     eval $(parse_yaml $pod_config "snapshot_")
     image_name=$(echo $snapshot_spec_source_persistentVolumeClaimName | cut -d '-' -f 2)
     echo ${image_name}
-    sed -i "s/${image_name,,}/${current_image_name,,}/g" $pod_config
+    # sed -i "s/${image_name,,}/${current_image_name,,}/g" $pod_config
 
 }
 # Copy local files to the guest image.
@@ -348,7 +345,7 @@ cp_to_guest_img() {
     # local image_path="$(sudo -E PATH=$PATH kata-runtime kata-env --json | jq -r .Image.Path)"
 
     if [ -f "$image_path" ]; then
-        if ! sudo mount -o loop,offset=$((512 * 6144)) "$image_path" \
+        if ! mount -o loop,offset=$((512 * 6144)) "$image_path" \
             "$rootfs_dir"; then
             echo "Failed to mount the image file: $image_path"
             rm -rf "$rootfs_dir"
@@ -370,7 +367,7 @@ cp_to_guest_img() {
             return 1
         fi
     fi
-    sudo mkdir -p "${rootfs_dir}/${dest_dir}"
+    mkdir -p "${rootfs_dir}/${dest_dir}"
 
     for file in ${src_files[@]}; do
         if [ ! -f "$file" ] && [ ! -d "$file" ]; then
@@ -379,21 +376,21 @@ cp_to_guest_img() {
         fi
 
         if [ -f "$file" ]; then
-            sudo cp -af "${file}" "${rootfs_dir}/${dest_dir}"
+            cp -af "${file}" "${rootfs_dir}/${dest_dir}"
         else
-            sudo cp -ad "${file}" "${rootfs_dir}/${dest_dir}"
+            cp -ad "${file}" "${rootfs_dir}/${dest_dir}"
         fi
     done
     # umount "$rootfs_dir"
     # rm -rf "$rootfs_dir"
     if [ -f "$image_path" ]; then
-        if ! sudo umount "$rootfs_dir"; then
+        if ! umount "$rootfs_dir"; then
             echo "Failed to umount the directory: $rootfs_dir"
             rm -rf "$rootfs_dir"
             return 1
         fi
     else
-        if ! sudo bash -c "cd "${rootfs_dir}" && find . | \
+        if ! bash -c "cd "${rootfs_dir}" && find . | \
 			cpio -H newc -o | gzip -9 > ${initrd_path}"; then
             echo "Failed to compress the image file"
             rm -rf "$rootfs_dir"
@@ -403,21 +400,20 @@ cp_to_guest_img() {
 
     rm -rf "$rootfs_dir"
 }
+# In case the tests run behind a firewall where images needed to be fetched
+# through a proxy.
+# Note: With measured rootfs enabled, we can not set proxy through
+# agent config file.
+setup_http_proxy() {
+    local https_proxy="${HTTPS_PROXY:-${https_proxy:-}}"
+    if [ -n "$https_proxy" ]; then
+        echo "Enable agent https proxy"
+        add_kernel_params "agent.https_proxy=$https_proxy"
+    fi
+}
+
 generate_encrypted_image() {
-    # git clone https://github.com/containers/attestation-agent $GOPATH/src/github.com/attestation-agent
-    # cd $GOPATH/src/github.com/attestation-agent
-    # make KBC=eaa_kbc && make install
-
-    # git clone -b 2022-poc https://github.com/jialez0/verdictd $GOPATH/src/github.com/verdictd
-    # cd $GOPATH/src/github.com/verdictd
-    # make
-    # make install
-
-    # git clone https://github.com/containers/skopeo $GOPATH/src/github.com/containers/skopeo
-    # cd $GOPATH/src/github.com/containers/skopeo && make bin/skopeo
-    # apt-get install go-md2man
-    # make install
-
+    local IMAGE="$1"
     # Generate the key provider configuration file
     if [ ! -d /etc/containerd/ocicrypt/ ]; then
         mkdir -p /etc/containerd/ocicrypt/
@@ -454,11 +450,7 @@ EOF
 
     export OCICRYPT_KEYPROVIDER_CONFIG=/etc/containerd/ocicrypt/ocicrypt_keyprovider.conf
 
-    for IMAGE in ${IMAGE_LISTS[@]}; do
-        skopeo --insecure-policy copy docker://${REGISTRY_NAME}/${IMAGE}:latest oci:$STORAGE_FILE_D/${IMAGE}
-        skopeo copy --insecure-policy --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 oci:$STORAGE_FILE_D/${IMAGE} docker://${REGISTRY_NAME}/${IMAGE}-encrypted:latest
-        rm -r $STORAGE_FILE_D/${IMAGE}
-    done
+    skopeo copy --insecure-policy --remove-signatures --encryption-key provider:attestation-agent:84688df7-2c0c-40fa-956b-29d8e74d16c0 docker://${REGISTRY_NAME}/${IMAGE}:latest docker://${REGISTRY_NAME}/${IMAGE}:encrypted
 
     # generate encrypted image
 
@@ -466,14 +458,45 @@ EOF
     echo $VERDICTDID
     sudo kill -9 $VERDICTDID
 }
-setup_offline_fs_kbc_agent_config_in_guest() {
+generate_offline_encrypted_image() {
+    local img="$1"
+    if [ ! -f $TEST_COCO_PATH/../config/ocicrypt.conf ]; then
+        cat <<-EOF >$TEST_COCO_PATH/../config/ocicrypt.conf
+{
+        "key-providers": {
+                "attestation-agent": {
+                    "grpc": "127.0.0.1:50001"
+
+                }
+        }
+}
+EOF
+    fi
+    if [ ! -d $GOPATH/src/github.com/attestation-agent ]; then
+        git clone https://github.com/confidential-containers/attestation-agent.git $GOPATH/src/github.com/attestation-agent
+
+    fi
+    offline_kbs_id=$(ps ux | grep "sample_keyprovider" | grep -v "grep" | awk '{print $2}')
+
+    cd $GOPATH/src/github.com/attestation-agent/sample_keyprovider/src/enc_mods/offline_fs_kbs
+    if [ "$offline_kbs_id" == "" ]; then
+        cargo run --release --features offline_fs_kbs -- --keyprovider_sock 127.0.0.1:50001 2>&1 &
+    fi
+
+    cp ${TEST_COCO_PATH}/../config/aa-offline_fs_kbc-keys.json /etc/
+    OCICRYPT_KEYPROVIDER_CONFIG=$TEST_COCO_PATH/../config/ocicrypt.conf skopeo copy --remove-signatures --encryption-key provider:attestation-agent:/etc/aa-offline_fs_kbc-keys.json:key_id docker://${REGISTRY_NAME}/${img}:latest docker://${REGISTRY_NAME}/${img}:offline-encrypted
+    offline_kbs_id=$(ps ux | grep "sample_keyprovider" | grep -v "grep" | awk '{print $2}')
+    echo $offline_kbs_id
+    kill -9 $offline_kbs_id
+}
+setup_eaa_kbc_agent_config_in_guest() {
     local rootfs_agent_config="/etc/agent-config.toml"
 
     # clone_katacontainers_repo
-    sudo -E AA_KBC_PARAMS='eaa_kbc::10.239.159.53:50000' envsubst <confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
-    # sudo -E AA_KBC_PARAMS="eaa_kbc::127.0.0:50000" envsubst <${katacontainers_repo_dir}/docs/how-to/data/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
+    sudo -E AA_KBC_PARAMS=$1 envsubst <$TEST_COCO_PATH/../config/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
 
     # sudo -E AA_KBC_PARAMS="offline_fs_kbc::null" HTTPS_PROXY="${HTTPS_PROXY:-${https_proxy:-}}" envsubst < ${katacontainers_repo_dir}/docs/how-to/data/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
+    # sudo -E AA_KBC_PARAMS='offline_fs_kbc::null' envsubst < $TEST_COCO_PATH/../config/confidential-agent-config.toml.in | sudo tee ${rootfs_agent_config}
 
     # TODO #5173 - remove this once the kernel_params aren't ignored by the agent config
     # Enable debug log_level and debug_console access based on env vars
@@ -487,13 +510,27 @@ setup_offline_fs_kbc_agent_config_in_guest() {
     # add_kernel_params "agent.config_file=${rootfs_agent_config}"
     # cat "${rootfs_agent_config}"
 }
-setup_decryption_files_in_guest() {
-
-    setup_offline_fs_kbc_agent_config_in_guest
+setup_eaa_decryption_files_in_guest() {
+    add_kernel_params "agent.aa_kbc_params=eaa_kbc::10.112.240.208:50000"
+    # setup_eaa_kbc_agent_config_in_guest "eaa_kbc::10.239.159.53:50000"
+    # setup_eaa_kbc_agent_config_in_guest "eaa_kbc::10.112.240.208:50000"
 }
-
+setup_offline_decryption_files_in_guest() {
+    add_kernel_params "agent.aa_kbc_params=offline_fs_kbc::null"
+    # add_kernel_params "agent.config_file=/etc/offline-agent-config.toml"
+    cp_to_guest_img "etc" "$TEST_COCO_PATH/../config/offline-agent-config.toml"
+    cp_to_guest_img "etc" "$TEST_COCO_PATH/../config/aa-offline_fs_kbc-keys.json"
+    local offline_base_config="$TEST_COCO_PATH/../config/aa-offline_fs_kbc-resources.json.in"
+    local offline_new_config="$TEST_COCO_PATH/../tests/aa-offline_fs_kbc-resources.json"
+    local p_b="$(cat $TEST_COCO_PATH/../config/policy.json | base64)"
+    local policy_base64=$(echo $p_b | tr -d '\n' | tr -d ' ')
+    local c_k_b="$(cat $TEST_COCO_PATH/../certs/cosign.pub | base64)"
+    local cosign_key_base64=$(echo $c_k_b | tr -d '\n' | tr -d ' ')
+    POLICY_BASE64="$policy_base64" COSIGN_KEY_BASE64="$cosign_key_base64" envsubst <"$offline_base_config" >"$offline_new_config"
+    cp_to_guest_img "etc" "$TEST_COCO_PATH/../tests/aa-offline_fs_kbc-resources.json"
+}
 kubernetes_create_ssh_demo_pod() {
-    kubectl apply -f "$1" && pod=$(kubectl get pods -o jsonpath='{.items..metadata.name}') && kubectl wait --timeout=60s --for=condition=ready pods/$pod
+    kubectl apply -f "$1" && pod=$(kubectl get pods -o jsonpath='{.items..metadata.name}') && kubectl wait --timeout=120s --for=condition=ready pods/$pod
 
     kubectl get pod $pod
 }
@@ -527,41 +564,111 @@ ESXU
 }
 setup_skopeo_signature_files_in_guest() {
     rootfs_directory="etc/containers/"
-    setup_common_signature_files_in_guest
+    target_image="$1"
+    setup_common_signature_files_in_guest $target_image
     cp_to_guest_img "${rootfs_directory}" "/etc/containers/registries.d"
 }
 
 setup_common_signature_files_in_guest() {
-    rootfs_directory="etc/containers/"
-    signatures_dir="$TEST_COCO_PATH/../signed/signatures"
+    rootfs_sig_directory="var/lib/containers/sigstore/"
+    target_image_dir=$(ls /var/lib/containers/sigstore/ | grep "$1@sha256=*")
+    cp_to_guest_img "${rootfs_sig_directory}" "$target_image_dir"
 
-    if [ ! -d "${signatures_dir}" ]; then
-        mkdir "${signatures_dir}"
-    fi
+}
+generate_tests_trust_storage() {
+    local base_config=$1
+    local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
 
-    tar -xf "$TEST_COCO_PATH/../signed/signatures.tar.gz" -C "${signatures_dir}"
+    IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2:$VERSION" pod_config="\$pod_config" go_path="\$GOPATH" test_coco_path="\$TEST_COCO_PATH" POD_NAME="\${POD_NAME}" pod_config_snap="\$pod_config_snap" snap_metadata_name="\$snap_metadata_name" SNAP_POD_NAME="\${SNAP_POD_NAME}" envsubst <"$base_config" >"$new_config"
 
-    cp_to_guest_img "${rootfs_directory}" "$TEST_COCO_PATH/../signed"
+    echo "$new_config"
+}
+generate_tests_signed_image() {
+    local base_config=$1
+    local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+
+    IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" pod_id="\$pod_id" envsubst <"$base_config" >"$new_config"
+
+    echo "$new_config"
+}
+generate_tests_encrypted_image() {
+    local base_config=$1
+    local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+
+    IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" VERDICTDID="\$VERDICTDID" envsubst <"$base_config" >"$new_config"
+
+    echo "$new_config"
+}
+generate_tests_offline_encrypted_image() {
+    local base_config=$1
+    local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+
+    IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" envsubst <"$base_config" >"$new_config"
+
+    echo "$new_config"
+}
+generate_cosign_image() {
+    local img=$1
+    # IMAGE=zcy-Z390-AORUS-MASTER.sh.intel.com/nginx:cosigned
+    local registrys=$(echo $img | cut -d "/" -f1)
+    local img_name=$(echo $img | cut -d "/" -f2)
+    docker tag $img $registrys/cosigned/$img_name:cosigned
+    docker push $registrys/cosigned/$img_name:cosigned
+    IMG_DIGEST=$registrys/cosigned/$img_name:cosigned@$(docker images --digests | grep "${img}" | grep cosigned | awk '{print $3}' | sed -n "1,1p")
+    /usr/bin/expect <<-EOF
+	spawn cosign sign --key $TEST_COCO_PATH/../config/cosign.key $IMG_DIGEST
+    expect "Enter password for private key:"
+    send "intel\r"
+    expect eof
+EOF
+    cp /usr/local/bin/cosign-linux-amd64 /usr/local/bin/cosign
+
+}
+generate_tests_cosign_image() {
+    local base_config=$1
+    local new_config=$(mktemp "$TEST_COCO_PATH/../tests/$(basename ${base_config}).XXX")
+    local offline_base_config="$TEST_COCO_PATH/../config/aa-offline_fs_kbc-resources.json.in"
+    local offline_new_config="$TEST_COCO_PATH/../tests/aa-offline_fs_kbc-resources.json"
+    local p_b="$(cat $TEST_COCO_PATH/../config/policy.json | base64)"
+    local policy_base64=$(echo $p_b | tr -d '\n' | tr -d ' ')
+    local c_k_b="$(cat $TEST_COCO_PATH/../certs/cosign.pub | base64)"
+    local cosign_key_base64=$(echo $c_k_b | tr -d '\n' | tr -d ' ')
+    POLICY_BASE64="$policy_base64" COSIGN_KEY_BASE64="$cosign_key_base64" envsubst <"$offline_base_config" >"$offline_new_config"
+    IMAGE="$2" IMAGE_SIZE="$3" RUNTIMECLASSNAME="$4" REGISTRTYIMAGE="$REGISTRY_NAME/$2" pod_config="\$pod_config" test_coco_path="\${TEST_COCO_PATH}" pod_id="\$pod_id" envsubst <"$base_config" >"$new_config"
+
+    echo "$new_config"
 }
 #"$test_tag Test can pull an unencrypted unsigned image from an unprotected registry"
-unencrypted_signed_image_from_unprotected_registry() {
+unencrypted_unsigned_image_from_unprotected_registry() {
     pod_config="$1"
-    eval $(parse_yaml $pod_config "_")
-    echo $_metadata_name
-    create_test_pod $pod_config
-    if ! kubernetes_wait_cc_pod_be_running "$_metadata_name"; then
-        # TODO: run this command for debugging. Maybe it should be
-        #       guarded by DEBUG=true?
-        kubectl get pods "$_metadata_name"
-        return 1
-    fi
-    kubectl get pods
-    # read -p "wait a minute:" tests
     # eval $(parse_yaml $pod_config "_")
-    kubernetes_delete_cc_pod_if_exists $_metadata_name || true
+    # echo $_metadata_name
+    create_test_pod $pod_config
+    # if ! kubernetes_wait_cc_pod_be_running "$_metadata_name"; then
+    #     # TODO: run this command for debugging. Maybe it should be
+    #     #       guarded by DEBUG=true?
+    #     kubectl get pods "$_metadata_name"
+    #     # return 1
+    # fi
+    # kubectl get pods
+    # kubernetes_delete_cc_pod_if_exists $_metadata_name || true
 
 }
-
+multiple_pods_delete() {
+    local runnin_pod_config=$(kubectl get pods -o jsonpath='{.items..metadata.name}')
+    for one in ${runnin_pod_config[@]}; do
+        if ! kubernetes_wait_cc_pod_be_running "$one"; then
+            # TODO: run this command for debugging. Maybe it should be
+            #       guarded by DEBUG=true?
+            kubectl get pods "$one"
+            echo "pod $one is not running"
+            # return 1
+        fi
+    done
+    for one in ${runnin_pod_config[@]}; do
+        kubernetes_delete_cc_pod_if_exists $one || true
+    done
+}
 # @test "$test_tag Test can pull an encrypted image inside the guest with decryption key"
 pull_encrypted_image_inside_guest_with_decryption_key() {
 
@@ -600,7 +707,6 @@ create_image_size() {
 }
 #generate .crt and .key
 generate_crt() {
-    # openssl req -newkey rsa:4096 -nodes -sha256 -keyout ${CERTS_PATH}certs/domain.key -addext "subjectAltName = ${TYPE_NAME}:${REGISTRY_NAME}" -x509 -days 365 -out ${CERTS_PATH}certs/domain.crt
     openssl req -newkey rsa:4096 -nodes -sha256 -keyout $TEST_COCO_PATH/../certs/domain.key -addext "subjectAltName = ${TYPE_NAME}:${REGISTRY_NAME}" -x509 -days 365 -out $TEST_COCO_PATH/../certs/domain.crt <<ESXU
 12
 
@@ -613,7 +719,26 @@ generate_crt() {
 12
 ESXU
 }
+set_docker_certs() {
+    if [ ! -d /etc/docker/certs.d/$REGISTRY_NAME:$PORT ]; then
+        mkdir -p /etc/docker/certs.d/$REGISTRY_NAME:$PORT
+    fi
 
+    cp $TEST_COCO_PATH/../certs/domain.crt /etc/docker/certs.d/$REGISTRY_NAME:$PORT/ca.crt
+    systemctl restart docker
+}
+get_certs_from_remote() {
+    scp chengyu@$REGISTRY_NAME:/certs/domain.* $TEST_COCO_PATH/../certs/
+    if [ "$OPERATING_SYSTEM_VERSION" == "Ubuntu" ]; then
+        cp $TEST_COCO_PATH/../certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
+        update-ca-certificates
+    elif [ "$OPERATING_SYSTEM_VERSION" == "CentOS" ]; then
+        cat $TEST_COCO_PATH/../certs/domain.crt >>/etc/pki/ca-trust/source/anchors/${REGISTRY_NAME}.crt
+        update-ca-trust
+    fi
+    set_docker_certs
+    pull_image
+}
 run_registry() {
     # delete all docker containers and images
     REGISTRY_CONTAINER=$(docker ps -a | grep "registry" | awk '{print $1}')
@@ -622,18 +747,18 @@ run_registry() {
         docker rm $REGISTRY_CONTAINER
     fi
     generate_crt
-    cp $TEST_COCO_PATH/../certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
-
-    update-ca-certificates
-
+    if [ "$OPERATING_SYSTEM_VERSION" == "Ubuntu" ]; then
+        cp $TEST_COCO_PATH/../certs/domain.crt /usr/local/share/ca-certificates/${REGISTRY_NAME}.crt
+        update-ca-certificates
+    elif [ "$OPERATING_SYSTEM_VERSION" == "CentOS" ]; then
+        cat $TEST_COCO_PATH/../certs/domain.crt >>/etc/pki/ca-trust/source/anchors/${REGISTRY_NAME}.crt
+        update-ca-trust
+    fi
     # Deploy docker registry
     docker run -d --restart=always --name $REGISTRY_NAME -v $TEST_COCO_PATH/../certs:/certs \
         -e REGISTRY_HTTP_ADDR=0.0.0.0:$PORT -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
         -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key -p $PORT:$PORT registry:2
-
-    # docker run -d --restart=always --name zcy-Z390-AORUS-MASTER.sh.intel.com -v certs:/certs \
-    #     -e REGISTRY_HTTP_ADDR=0.0.0.0:443 -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/domain.crt \
-    #     -e REGISTRY_HTTP_TLS_KEY=/certs/domain.key -p 443:443 registry:2
+    systemctl restart docker
 
     pull_image
     # create_image_size
@@ -643,76 +768,109 @@ pull_image() {
     VERSION=latest
     for IMAGE in ${EXAMPLE_IMAGE_LISTS[@]}; do
         docker pull $IMAGE:$VERSION
-        docker tag $IMAGE:$VERSION $REGISTRY_NAME/$IMAGE:$VERSION
-        docker push $REGISTRY_NAME/$IMAGE:$VERSION
+        docker tag $IMAGE:$VERSION $REGISTRY_NAME/ci-$IMAGE:$VERSION
+        docker push $REGISTRY_NAME/ci-$IMAGE:$VERSION
     done
 }
 
+# Create a pod configuration out of a template file.
+#
+# Parameters:
+#	$1 - the container image.
+# Return:
+# 	the path to the configuration file. The caller should not care about
+# 	its removal afterwards as it is created under the bats temporary
+# 	directory.
+#
+# Environment variables:
+#	RUNTIMECLASS: set the runtimeClassName value from $RUNTIMECLASS.
+#
+new_pod_config() {
+
+    local base_config="$1"
+    local image="$2"
+    local runtimeclass="$3"
+    local registryimage="$4"
+    local pod_num="$5"
+    local cpu_num="$6"
+    local mem_size="$7"
+    local new_config=$(mktemp "$TEST_COCO_PATH/../fixtures/$(basename ${base_config}).XXX")
+    IMAGE="$image" RUNTIMECLASSNAME="$runtimeclass" REGISTRTYIMAGE="$registryimage" NUM="$pod_num" LIMITCPU="$cpu_num" REQUESTCPU="$cpu_num" LIMITMEM="$mem_size" REQUESTMEM="$mem_size" envsubst <"$base_config" >"$new_config"
+    echo "$new_config"
+}
+new_pod_config_normal() {
+    local base_config="$1"
+    local image="$2"
+    local runtimeclass="$3"
+    local registryimage="$4"
+
+    local new_config=$(mktemp "$TEST_COCO_PATH/../fixtures/$(basename ${base_config}).XXX")
+    IMAGE="$image" RUNTIMECLASSNAME="$runtimeclass" REGISTRTYIMAGE="$registryimage" envsubst <"$base_config" >"$new_config"
+    echo "$new_config"
+}
+set_runtimeclass_config() {
+    local runtime_class=$1
+    case $runtime_class in
+    "kata-qemu")
+        export CURRENT_CONFIG_FILE="configuration-qemu.toml"
+        ;;
+    "kata-clh")
+        export CURRENT_CONFIG_FILE="configuration-clh.toml"
+        ;;
+    "kata-qemu-tdx")
+        export CURRENT_CONFIG_FILE="configuration-qemu-tdx.toml"
+        ;;
+    "kata-clh-tdx")
+        export CURRENT_CONFIG_FILE="configuration-clh-tdx.toml"
+        ;;
+    "kata-clh-tdx-eaa-kbc")
+        export CURRENT_CONFIG_FILE="configuration-clh-tdx-eaa-kbc.toml"
+        ;;
+    "kata-qemu-tdx-eaa-kbc")
+        export CURRENT_CONFIG_FILE="configuration-qemu-tdx-eaa-kbc.toml"
+        ;;
+    esac
+
+}
 read_config() {
     export KUBECONFIG=/etc/kubernetes/admin.conf
-    # export GOPATH="$(mktemp -d)"
     export GOPATH=/root/go
-    # export GOPATH=$(go env | grep GOPATH | cut -d'=' -f2)
     export TEST_DIR="$GOPATH/src/github.com/tests"
-    echo $TEST_COCO_PATH
-    export RUNTIME_CONFIG_PATH=$(jq -r '.config.runtimeConfigPath' $TEST_COCO_PATH/../config/test_config.json)
+    export RUNTIME_CONFIG_PATH="/opt/confidential-containers/share/defaults/kata-containers"
     export FIXTURES_DIR=$(jq -r '.config.podConfigPath' $TEST_COCO_PATH/../config/test_config.json)
-    export CONFIG_FILES=($(ls -l ${RUNTIME_CONFIG_PATH} | awk '{print $9}'))
-    export CURRENT_CONFIG_FILES=${CONFIG_FILES[1]}
-    export RUNTIMECLASS=$(jq -r '.config.runtimeClass' $TEST_COCO_PATH/../config/test_config.json)
-    echo $RUNTIMECLASS
+    # export CONFIG_FILES=($(ls -l ${RUNTIME_CONFIG_PATH} | awk '{print $9}'))
+    export CURRENT_CONFIG_FILE="configuration-qemu.toml"
+    # TDX_STATUS=$(grep -o tdx /proc/cpuinfo)
+    if [ -z "$TDX_STATUS" ]; then
+        export RUNTIMECLASS=$(jq -r '.config.runtimeClass[]' $TEST_COCO_PATH/../config/test_config.json)
+    else
+        export RUNTIMECLASS=$(jq -r '.config.TDXRuntimeClass[]' $TEST_COCO_PATH/../config/test_config.json)
+    fi
+    export EAATDXRUNTIMECLASS=$(jq -r '.config.eaaTDXRuntimeClass[]' $TEST_COCO_PATH/../config/test_config.json)
+    export CPUCONFIG=$(jq -r '.config.cpuNum[]' $TEST_COCO_PATH/../config/test_config.json)
+    export MEMCONFIG=$(jq -r '.config.memSize[]' $TEST_COCO_PATH/../config/test_config.json)
+    export PODNUMCONFIG=$(jq -r '.config.podNum[]' $TEST_COCO_PATH/../config/test_config.json)
     export katacontainers_repo_dir=$GOPATH/src/github.com/kata-containers/kata-containers
-    export ROOTFS_IMAGE_PATH=$(jq -r '.file.rootfs' $TEST_COCO_PATH/../config/test_config.json)
-    export CONTAINERD_CONF_FILE=$(jq -r '.file.containerd_file' $TEST_COCO_PATH/../config/test_config.json)
-    export OPERATOR_VERSION=$(jq -r '.file.operator_version' $TEST_COCO_PATH/../config/test_config.json)
+    export kata_test_repo_dir=$GOPATH/src/github.com/kata-containers/tests
+    export ROOTFS_IMAGE_PATH="/opt/confidential-containers/share/kata-containers/kata-ubuntu-latest.image"
+    export CONTAINERD_CONF_FILE="/etc/containerd/config.toml"
+    export OPERATOR_VERSION=$(jq -r '.file.operatorVersion' $TEST_COCO_PATH/../config/test_config.json)
 
-    export IMAGE_LISTS=$(jq -r .file.image_lists[] $TEST_COCO_PATH/../config/test_config.json)
-    # export IMAGE_LISTS=(busybox redis mysql ruby rust swift)
-    # export NORMAL_IMAGE_LISTS=$(jq -r .file.image_lists[] $TEST_COCO_PATH/../config/test_config.json)
-    export EXAMPLE_IMAGE_LISTS=$(jq -r .file.comments_image_lists[] $TEST_COCO_PATH/../config/test_config.json)
-    # export IMAGE_LISTS=(${NORMAL_IMAGE_LISTS[@]} ${EXAMPLE_IMAGE_LISTS[@]})
+    export IMAGE_LISTS=$(jq -r .file.imageLists[] $TEST_COCO_PATH/../config/test_config.json)
+    export EXAMPLE_IMAGE_LISTS=$(jq -r .file.commentsImageLists[] $TEST_COCO_PATH/../config/test_config.json)
     export VERSION=latest
-    # export CERTS_PATH=$(jq -r '.certificates.certsPath' $TEST_COCO_PATH/../config/test_config.json)
     export TYPE_NAME=$(jq -r '.certificates.type' $TEST_COCO_PATH/../config/test_config.json)
-    export REGISTRY_NAME=$(jq -r '.certificates.registry' $TEST_COCO_PATH/../config/test_config.json)
-    export PORT=$(jq -r '.certificates.port' $TEST_COCO_PATH/../config/test_config.json)
-    export STORAGE_FILE_D=$(jq -r '.certificates.image_path' $TEST_COCO_PATH/../config/test_config.json)
-    export REGISTRY_IP=$(jq -r '.certificates.ip' $TEST_COCO_PATH/../config/test_config.json)
-    export GPG_EMAIL=$(jq -r '.certificates.gpg_email' $TEST_COCO_PATH/../config/test_config.json)
+    export STORAGE_FILE_D=$(jq -r '.certificates.imagePath' $TEST_COCO_PATH/../config/test_config.json)
 
+    export REPORT_FILE_PATH="$TEST_COCO_PATH/../report/"
+    export OPERATING_SYSTEM_VERSION=$(cat /etc/os-release | grep "NAME" | sed -n "1,1p" | cut -d '=' -f2 | cut -d ' ' -f1 | sed 's/\"//g')
     if [ ! -d $katacontainers_repo_dir ]; then
         git clone -b CCv0 https://github.com/kata-containers/kata-containers $katacontainers_repo_dir
     fi
+    if [ ! -d $kata_test_repo_dir ]; then
+        git clone -b CCv0 https://github.com/kata-containers/tests $kata_test_repo_dir
+    fi
 }
-
-backup() {
-    # export BACKUP_PATH="$(mktemp -d)"
-    export BACKUP_PATH="/root/shells/kata/backup"
-    echo $BACKUP_PATH
-    if [ ! -d $BACKUP_PATH$RUNTIME_CONFIG_PATH ]; then
-        mkdir -p $BACKUP_PATH$RUNTIME_CONFIG_PATH
-    fi
-    cp -r $RUNTIME_CONFIG_PATH $BACKUP_PATH$RUNTIME_CONFIG_PATH
-    if [ ! -d $BACKUP_PATH$FIXTURES_DIR ]; then
-
-        mkdir -p $BACKUP_PATH$FIXTURES_DIR
-    fi
-    cp -r $FIXTURES_DIR $BACKUP_PATH$FIXTURES_DIR
-    if [ ! -d $BACKUP_PATH$(dirname ${ROOTFS_IMAGE_PATH}) ]; then
-
-        mkdir -p $BACKUP_PATH$(dirname ${ROOTFS_IMAGE_PATH})
-    fi
-    cp $ROOTFS_IMAGE_PATH $BACKUP_PATH$ROOTFS_IMAGE_PATH
-    if [ ! -d $BACKUP_PATH$(dirname ${CONTAINERD_CONF_FILE}) ]; then
-        mkdir -p $BACKUP_PATH$(dirname ${CONTAINERD_CONF_FILE})
-    fi
-    cp $CONTAINERD_CONF_FILE $BACKUP_PATH$CONTAINERD_CONF_FILE
-    if [ ! -d $TEST_DIR ]; then
-        mkdir -p $TEST_DIR
-    fi
-
-}
-
 restore() {
     # cp -r $BACKUP_PATH$RUNTIME_CONFIG_PATH ${RUNTIME_CONFIG_PATH}
     # cp -r $BACKUP_PATH$FIXTURES_DIR ${FIXTURES_DIR}
@@ -721,15 +879,235 @@ restore() {
     rm -r $katacontainers_repo_dir
     # rm -r $GOPATH
 }
-check_cc_runtime() {
-    RUNTIMELISTS=("kata" "kata-clh" "kata-clh-tdx" "kata-qemu" "kata-qemu-sev" "kata-qemu-tdx")
-    COUNT=0
-    for RUNTIME in ${RUNTIMELISTS[@]}; do
-        RUNTIMES=$(kubectl get runtimeclass -ojson | jq -r .items[$COUNT].metadata.name)
-        if [ "$RUNTIMES" != "$RUNTIME" ]; then
-            return 1
+
+clean_up() {
+    sh -c 'rm -rf /opt/cni/bin/*'
+    sh -c 'rm -rf /etc/cni /etc/kubernetes/'
+    sh -c 'rm -rf /var/lib/cni /var/lib/etcd /var/lib/kubelet'
+    sh -c 'rm -rf /run/flannel'
+}
+extract_kata_env() {
+    RUNTIME_CONFIG_PATH=$(kata-runtime kata-env --json | jq -r .Runtime.Config.Path)
+    RUNTIME_VERSION=$(kata-runtime kata-env --json | jq -r .Runtime.Version | grep Semver | cut -d'"' -f4)
+    RUNTIME_COMMIT=$(kata-runtime kata-env --json | jq -r .Runtime.Version | grep Commit | cut -d'"' -f4)
+    RUNTIME_PATH=$(kata-runtime kata-env --json | jq -r .Runtime.Path)
+
+    # Shimv2 path is being affected by https://github.com/kata-containers/kata-containers/issues/1151
+    SHIM_PATH=$(command -v containerd-shim-kata-v2)
+    SHIM_VERSION=${RUNTIME_VERSION}
+
+    HYPERVISOR_PATH=$(kata-runtime kata-env --json | jq -r .Hypervisor.Path)
+    # TODO: there is no kata-runtime of rust version currently
+    if [ "${KATA_HYPERVISOR}" != "dragonball" ]; then
+        HYPERVISOR_VERSION=$(${HYPERVISOR_PATH} --version | head -n1)
+    fi
+    VIRTIOFSD_PATH=$(kata-runtime kata-env --json | jq -r .Hypervisor.VirtioFSDaemon)
+
+    INITRD_PATH=$(kata-runtime kata-env --json | jq -r .Initrd.Path)
+}
+kill_stale_process() {
+    # clean_env_ctr
+    SHIM_PATH=$(command -v containerd-shim-kata-v2)
+    HYPERVISOR_PATH=$(/opt/confidential-containers/bin/kata-runtime kata-env --json | jq -r .Hypervisor.Path)
+    stale_process_union=("${stale_process_union[@]}" "${HYPERVISOR_PATH}" "${SHIM_PATH}")
+    echo ${stale_process_union[@]}
+    for stale_process in "${stale_process_union[@]}"; do
+        [ -z "${stale_process}" ] && continue
+        local pids=$(pgrep -d ' ' -f "${stale_process}")
+        if [ -n "$pids" ]; then
+            sudo kill -9 ${pids} || true
         fi
-        COUNT=$COUNT+1
     done
-    return 0
+}
+delete_stale_docker_resource() {
+    systemctl stop docker.service docker.socket
+
+    # before removing stale docker dir, you should umount related resource
+    for stale_docker_mount_point in "${stale_docker_mount_point_union[@]}"; do
+        local mount_point_union=$(mount | grep "${stale_docker_mount_point}" | awk '{print $3}')
+        if [ -n "${mount_point_union}" ]; then
+            while IFS='$\n' read mount_point; do
+                [ -n "$(grep "${mount_point}" "/proc/mounts")" ] && sudo umount -R "${mount_point}"
+            done <<<"${mount_point_union}"
+        fi
+    done
+    # remove stale docker dir
+    for stale_docker_dir in "${stale_docker_dir_union[@]}"; do
+        if [ -d "${stale_docker_dir}" ]; then
+            rm -rf "${stale_docker_dir}"
+        fi
+    done
+
+    systemctl disable docker.service docker.socket
+    rm -f /etc/systemd/system/{docker.service,docker.socket}
+}
+clean_env_ctr() {
+    local count_running="$(ctr c list -q | wc -l)"
+    local remaining_attempts=10
+    declare -a running_tasks=()
+    local count_tasks=0
+    local sleep_time=1
+    local time_out=10
+
+    [ "$count_running" -eq "0" ] && return 0
+
+    # readarray -t running_tasks < <(sudo ctr t list -q)
+
+    echo "Wait until the containers gets removed"
+
+    for task_id in "${running_tasks[@]}"; do
+        sudo ctr t kill -a -s SIGTERM ${task_id} >/dev/null 2>&1
+        sleep 0.5
+    done
+
+    # do not stop if the command fails, it will be evaluated by waitForProcess
+    local cmd="[[ $(sudo ctr tasks list | grep -c "STOPPED") == "$count_running" ]]" || true
+
+    local res="ok"
+    waitForProcess "${time_out}" "${sleep_time}" "$cmd" || res="fail"
+
+    [ "$res" == "ok" ] || sudo systemctl restart containerd
+
+    while ((remaining_attempts > 0)); do
+        sudo ctr c rm $(sudo ctr c list -q) >/dev/null 2>&1
+
+        count_running="$(sudo ctr c list -q | wc -l)"
+
+        [ "$count_running" -eq 0 ] && break
+
+        remaining_attempts=$((remaining_attempts - 1))
+    done
+
+    count_tasks="$(sudo ctr t list -q | wc -l)"
+    if ((count_tasks > 0)); then
+        die "Can't remove running contaienrs."
+    fi
+}
+function get_version() {
+    dependency="$1"
+    versions_file="${katacontainers_repo_dir}/versions.yaml"
+
+    result=$("${GOPATH}/bin/yq" r -X "$versions_file" "$dependency")
+    [ "$result" = "null" ] && result=""
+    echo "$result"
+}
+
+delete_crio_stale_resource() {
+    # stale cri-o related binary
+    # sudo rm -rf /usr/local/bin/crio
+    # sudo sh -c 'rm -rf /usr/local/libexec/crio/*'
+    # sudo rm -rf /usr/local/bin/crio-runc
+    # stale cri-o related configuration
+    sudo rm -rf /etc/crio/crio.conf
+    sudo rm -rf /usr/local/share/oci-umount/oci-umount.d/crio-umount.conf
+    sudo rm -rf /etc/crictl.yaml
+    # stale cri-o systemd service file
+    sudo rm -rf /etc/systemd/system/crio.service
+}
+
+delete_containerd_cri_stale_resource() {
+    # stop containerd service
+    sudo systemctl stop containerd
+    # remove stale binaries
+    containerd_cri_dir=$(get_version "externals.containerd.url")
+    release_bin_dir="${GOPATH}/src/${containerd_cri_dir}/bin"
+    # binary_dir_union=("/usr/local/bin" "/usr/local/sbin")
+    # for binary_dir in ${binary_dir_union[@]}; do
+    #     for stale_binary in ${release_bin_dir}/*; do
+    #         sudo rm -rf ${binary_dir}/$(basename ${stale_binary})
+    #     done
+    # done
+    # remove cluster directory
+    sudo rm -rf /opt/containerd/
+    # remove containerd home/run directory
+    sudo rm -r /var/lib/containerd
+    sudo rm -r /var/lib/containerd-test
+    sudo rm -r /run/containerd
+    # sudo rm -r /run/containerd-test
+    # remove configuration files
+    sudo rm -f /etc/containerd/config.toml
+    sudo rm -f /etc/crictl.yaml
+    sudo rm -f /etc/systemd/system/containerd.service
+}
+cleanup_network_interface() {
+	 FLANNEL=$(ls /sys/class/net | grep flannel)
+	 CNI=$(ls /sys/class/net | grep cni)
+
+	[ "$FLANNEL" != "" ] && sudo ip link del $FLANNEL
+	[ "$CNI" != "" ] && sudo ip link del $CNI
+
+	FLANNEL=$(ls /sys/class/net | grep flannel)
+	CNI=$(ls /sys/class/net | grep cni)
+
+	[ "$FLANNEL" != "" ] && echo "$FLANNEL doesn't clean up"
+	[ "$CNI" != "" ] && echo "$CNI doesn't clean up"
+}
+
+delete_stale_kata_resource()
+{
+	for stale_kata_dir in "${stale_kata_dir_union[@]}"; do
+		if [ -d "${stale_kata_dir}" ]; then
+			sudo rm -rf "${stale_kata_dir}"
+		fi
+	done
+}
+gen_clean_arch() {
+    KATA_DOCKER_TIMEOUT=30
+    # Set up some vars
+    stale_process_union=("docker-containerd-shim")
+    #docker supports different storage driver, such like overlay2, aufs, etc.
+    docker_storage_driver=$(timeout ${KATA_DOCKER_TIMEOUT} docker info --format='{{.Driver}}')
+    stale_docker_mount_point_union=("/var/lib/docker/containers" "/var/lib/docker/${docker_storage_driver}")
+    stale_docker_dir_union=("/var/lib/docker")
+    stale_kata_dir_union=("/var/lib/vc" "/run/vc" "/usr/share/kata-containers" "/usr/share/defaults/kata-containers")
+
+    echo "kill stale process"
+    # kill_stale_process
+    echo "delete stale docker resource under ${stale_docker_dir_union[@]}"
+    delete_stale_docker_resource
+    echo "remove containers started by ctr"
+    # clean_env_ctr
+
+    # reset k8s service may impact metrics test on x86_64
+    [ $(uname -m) != "x86_64" -a "$(pgrep kubelet)" != "" ] && sudo sh -c 'kubeadm reset -f'
+    echo "Remove installed kubernetes packages and configuration"
+    # Remove existing k8s related configurations and binaries.
+    sh -c 'rm -rf /opt/cni/bin/*'
+    sh -c 'rm -rf /etc/cni /etc/kubernetes/'
+    sh -c 'rm -rf /var/lib/cni /var/lib/etcd /var/lib/kubelet'
+    sh -c 'rm -rf /run/flannel'
+
+    echo "delete stale kata resource under ${stale_kata_dir_union[@]}"
+    delete_stale_kata_resource
+    echo "Remove installed kata packages"
+    # ${kata_test_repo_dir}/cmd/kata-manager/kata-manager.sh remove-packages
+    echo "Remove installed cri-o related binaries and configuration"
+    # delete_crio_stale_resource
+    echo "Remove installed containerd-cri related binaries and configuration"
+    delete_containerd_cri_stale_resource
+
+    if [ "$OPERATING_SYSTEM_VERSION" == "Ubuntu" ]; then
+        sudo apt-get autoremove -y $(dpkg -l | awk '{print $2}' | grep -E '^(containerd(.\io)?|docker(\.io|-ce(-cli)?))$')
+    fi
+
+    echo "Clean up stale network interface"
+    cleanup_network_interface
+    # info "Clean GOCACHE"
+    # if command -v go >/dev/null; then
+    #     GOCACHE=${GOCACHE:-$(go env GOCACHE)}
+    # else
+    #     # if go isn't installed, try default dir
+    #     GOCACHE=${GOCACHE:-$HOME/.cache/go-build}
+    # fi
+    # [ -d "$GOCACHE" ] && sudo rm -rf ${GOCACHE}/*
+
+    # info "Clean rust environment"
+    # [ -f "${HOME}/.cargo/env" ] && source "${HOME}/.cargo/env"
+    # if command -v rustup >/dev/null; then
+    #     info "uninstall rust using rustup"
+    #     sudo -E env PATH="${HOME}/.cargo/bin":$PATH rustup self uninstall -y
+    # fi
+    # # make sure cargo and rustup home dir are removed
+    # info "remove cargo and rustup home dir"
+    # sudo rm -rf ~/.cargo ~/.rustup
 }

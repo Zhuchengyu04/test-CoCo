@@ -1,51 +1,55 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: lvm-cc
+  name: lvm-cc-snap
   labels:
-    app: lvm-cc
+    app: lvm-cc-snap
 spec:
   ports:
   - port: 80
     name: web
   clusterIP: None
   selector:
-    app: lvm-cc
+    app: lvm-cc-snap
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: lvm-cc
+  name: lvm-cc-snap
 spec:
   selector:
     matchLabels:
-      app: lvm-cc
+      app: lvm-cc-snap
   podManagementPolicy: Parallel
-  serviceName: "lvm-cc"
+  serviceName: "lvm-cc-snap"
   replicas: 1
   volumeClaimTemplates:
   - metadata:
       name: html
     spec:
+      dataSource:
+        name: new-snapshot-test # 指定刚创建的VolumeSnapshot名称
+        kind: VolumeSnapshot
+        apiGroup: snapshot.storage.k8s.io
       accessModes:
         - ReadWriteOnce
       storageClassName: open-local-lvm
       resources:
         requests:
-          storage: 10Gi
+          storage: 4Gi
   template:
     metadata:
       labels:
-        app: lvm-cc
+        app: lvm-cc-snap
     spec:
-      runtimeClassName: $RUNTIMECLASSNAME
+      runtimeClassName: kata-qemu
       tolerations:
         - key: node-role.kubernetes.io/master
           operator: Exists
           effect: NoSchedule
       containers:
-      - name: $IMAGE
-        image: $REGISTRTYIMAGE
+      - name: ubuntu
+        image: zcy-Z390-AORUS-MASTER.sh.intel.com/ubuntu:latest
         imagePullPolicy: Always
         volumeMounts:
         - mountPath: "/data"

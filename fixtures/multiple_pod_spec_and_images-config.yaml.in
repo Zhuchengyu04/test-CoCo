@@ -7,8 +7,15 @@ kind: Pod
 metadata:
   name: unsigned-unencrypted-cc
 spec:
-  runtimeClassName: $RUNTIMECLASS
+  runtimeClassName: $RUNTIMECLASSNAME
   containers:
     - name: $IMAGE
       image: $REGISTRTYIMAGE
       imagePullPolicy: Always
+      resources:
+        limits:
+          cpu: "${LIMITCPU}m"
+          memory: "${LIMITMEM}Gi"
+        requests:
+          cpu: "${REQUESTCPU}m"
+          memory: "${REQUESTMEM}Gi"

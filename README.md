@@ -1,3 +1,11 @@
+# Test-CoCo
+This repository is the home of the Test-CoCo code .
+
+## Introduction
+
+Test-CoCo contains function tests for testing the Confidential Containers code repositories.
+
+
 ## Run
 ./test_runner.sh -h
 

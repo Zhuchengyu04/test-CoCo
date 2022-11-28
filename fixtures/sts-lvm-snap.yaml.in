@@ -42,7 +42,7 @@ spec:
       labels:
         app: lvm-cc-snap
     spec:
-      runtimeClassName: $RUNTIMECLASS
+      runtimeClassName: $RUNTIMECLASSNAME
       tolerations:
         - key: node-role.kubernetes.io/master
           operator: Exists

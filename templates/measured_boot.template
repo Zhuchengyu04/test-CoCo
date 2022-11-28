@@ -1,0 +1,10 @@
+
+@test "Test_measured_boot $IMAGE $IMAGE_SIZE $RUNTIMECLASSNAME" {
+		skip
+		set_runtimeclass_config $RUNTIMECLASSNAME
+		switch_measured_rootfs_verity_scheme dm-verity
+		pod_config="$(new_pod_config_normal $TEST_COCO_PATH/../fixtures/measured-boot-config.yaml.in "$IMAGE" "$RUNTIMECLASSNAME" "$REGISTRTYIMAGE" )"
+		unencrypted_unsigned_image_from_unprotected_registry $pod_config
+		rm $pod_config
+		switch_measured_rootfs_verity_scheme none
+}

@@ -19,9 +19,9 @@ source /opt/intel/sgxsdk/environment
 # make psw
 make deb_psw_pkg
 
-apt-get install -y dpkg-dev apache2
-mkdir /var/www/html/repo
-find /root/kata/downloads/linux-sgx/linux/installer/deb -iname "*.deb" -exec cp {} /var/www/html/repo \;
+apt-get install -y dpkg-dev
+mkdir -p  /var/www/html/repo
+find ./linux/installer/deb -iname "*.deb" -exec cp {} /var/www/html/repo \;
 cat<<-EOF | tee -a /bin/update-debs
 #!/bin/bash
 cd /var/www/html/repo
@@ -33,10 +33,10 @@ cd /var/www/html/repo
 apt-ftparchive packages . > Packages
 apt-ftparchive release . > Release
 gpg --gen-key #gpg --list-keys查看
-gpg -a --export 086D53152F6A48F2223D7EE9704B640BB95DBA04 | apt-key add -  #apt客户端导入公钥
+gpg -a --export 60392C6D3D1F3C676252F1BE9AAFEE17D277E443 | apt-key add -  #apt客户端导入公钥
 gpg -a --export intel > username.pub  #导出公钥
 apt-key add username.pub #导入公钥
-gpg -a --export 086D53152F6A48F2223D7EE9704B640BB95DBA04 | apt-key add -     #其中pub key可用gpg --list-keys查到
+gpg -a --export 60392C6D3D1F3C676252F1BE9AAFEE17D277E443 | apt-key add -     #其中pub key可用gpg --list-keys查到
 gpg --clearsign -o InRelease Release #gpg生成一个明文签名
 gpg -abs -o Release.gpg Release #gpg生成一个分离签名
 
@@ -47,5 +47,7 @@ deb [trusted=yes arch=amd64] file:/var/www/html/repo /
 EOF
 apt update
 
-apt-get install libsgx-launch libsgx-urts libsgx-epid libsgx-quote-ex libsgx-dcap-ql libsgx-enclave-common-dev libsgx-dcap-quote-verify-dev libsgx-dcap-ql-dev libsgx-tdx-logic-dev libtdx-attest-dev
+apt-get install -y libsgx-launch libsgx-urts libsgx-epid libsgx-quote-ex libsgx-dcap-ql libsgx-enclave-common-dev libsgx-dcap-quote-verify-dev libsgx-dcap-ql-dev libsgx-tdx-logic-dev libtdx-attest-dev 
+cp ./external/dcap_source/QuoteGeneration/installer/linux/common/libtdx-attest/output/pkgroot/libtdx-attest/lib/libtdx_attest.so /usr/local/lib
+cp ./external/dcap_source/QuoteGeneration/installer/linux/common/libtdx-attest/output/pkgroot/libtdx-attest/lib/libtdx_attest.so /usr/lib
 

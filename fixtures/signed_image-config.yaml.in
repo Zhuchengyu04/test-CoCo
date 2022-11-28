@@ -7,7 +7,7 @@ kind: Pod
 metadata:
   name: signed-cc
 spec:
-  runtimeClassName: $RUNTIMECLASS
+  runtimeClassName: $RUNTIMECLASSNAME
   containers:
   - name: $IMAGE
     image: $REGISTRTYIMAGE
