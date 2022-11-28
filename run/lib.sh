@@ -517,7 +517,7 @@ setup_eaa_decryption_files_in_guest() {
 }
 setup_offline_decryption_files_in_guest() {
     add_kernel_params "agent.aa_kbc_params=offline_fs_kbc::null"
-    add_kernel_params "agent.config_file=/etc/offline-agent-config.toml"
+    # add_kernel_params "agent.config_file=/etc/offline-agent-config.toml"
     cp_to_guest_img "etc" "$TEST_COCO_PATH/../config/offline-agent-config.toml"
     cp_to_guest_img "etc" "$TEST_COCO_PATH/../config/aa-offline_fs_kbc-keys.json"
     local offline_base_config="$TEST_COCO_PATH/../config/aa-offline_fs_kbc-resources.json.in"
