@@ -1,8 +1,7 @@
 @test "Test_encrypted_image $IMAGE $IMAGE_SIZE $RUNTIMECLASSNAME" {
-	skip  
+	#skip  
 	set_runtimeclass_config $RUNTIMECLASSNAME
 	#switch_measured_rootfs_verity_scheme none
-	remove_kernel_param "agent.enable_signature_verification"
 	remove_kernel_param "agent.enable_signature_verification"
 	#generate_encrypted_image $IMAGE
 	VERDICTDID=$(ps ux | grep "verdictd" | grep -v "grep" | awk '{print $2}')
